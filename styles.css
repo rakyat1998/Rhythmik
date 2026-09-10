@@ -48,11 +48,11 @@ body {
 }
 
 .center-cabinet { z-index: 10; transform: translateZ(50px); }
-.left-cabinet { z-index: 1; transform: translateX(-1050px) translateZ(-200px) rotateY(-18deg); filter: brightness(0.65) contrast(1.2); }
-.right-cabinet { z-index: 1; transform: translateX(1050px) translateZ(-200px) rotateY(18deg); filter: brightness(0.65) contrast(1.2); }
+.left-cabinet { z-index: 1; transform: translateX(-1350px) translateZ(-500px) rotateY(-32deg); filter: brightness(0.2) contrast(1.0); }
+.right-cabinet { z-index: 1; transform: translateX(1350px) translateZ(-500px) rotateY(32deg); filter: brightness(0.2) contrast(1.0); }
 
-#arcade-room.game-running .left-cabinet { opacity: 0; transform: translateX(-1600px) translateZ(-800px) rotateY(-40deg); pointer-events: none; }
-#arcade-room.game-running .right-cabinet { opacity: 0; transform: translateX(1600px) translateZ(-800px) rotateY(40deg); pointer-events: none; }
+#arcade-room.game-running .left-cabinet { opacity: 0; transform: translateX(-1800px) translateZ(-800px) rotateY(-40deg); pointer-events: none; }
+#arcade-room.game-running .right-cabinet { opacity: 0; transform: translateX(1800px) translateZ(-800px) rotateY(40deg); pointer-events: none; }
 
 .left-cabinet .control-panel, .right-cabinet .control-panel {
     transform: rotateX(40deg) translateZ(80px) translateY(20px) scale(1.05) !important;
@@ -123,6 +123,9 @@ canvas { display: block; }
 .overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; z-index: 40; }
 .hidden { display: none !important; }
 .blink { animation: blink 1s infinite step-end; }
+
+#intro-screen h1 { font-size: 65px; color: #fff; margin: 0; letter-spacing: 12px; text-shadow: 4px 0 2px rgba(255,0,0,0.8), -4px 0 2px rgba(0,255,255,0.8), 0 0 20px rgba(255,255,255,0.6); animation: crtPulse 2.5s infinite alternate; }
+@keyframes crtPulse { 0% { transform: scale(0.98); } 100% { transform: scale(1.02); text-shadow: 6px 0 3px rgba(255,0,0,0.9), -6px 0 3px rgba(0,255,255,0.9), 0 0 35px rgba(255,255,255,0.8); } }
 
 button { margin-top: 5px; padding: 15px 20px; background-color: #fff; color: #000; border: 2px solid transparent; font-family: 'Press Start 2P', monospace; font-size: 14px; cursor: pointer; transition: all 0.1s; pointer-events: auto; }
 button:hover, button.selected-btn { transform: scale(1.1); background-color: #ff0055; color: #fff; box-shadow: 0 0 15px #ff0055; border: 2px solid #0ff; }
