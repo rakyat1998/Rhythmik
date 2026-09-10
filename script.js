@@ -143,10 +143,40 @@ auth.onAuthStateChanged(async (user) => {
         document.getElementById('lobby-username').innerText = currentUsername;
         authScreen.classList.add('hidden');
         lobbyScreen.classList.remove('hidden');
+        
+        // FIX 1: Zoom the camera out to reveal the side arcade cabinets
+        arcadeRoom.classList.remove('zoomed-in-view');
+        
+        // FIX 2: Initialize and fade-in the background menu music
+        initAudio();
+        if (bgMusic.paused || !bgMusic.src) {
+            currentSongIndex = Math.floor(Math.random() * playlist.length);
+            updateSongDisplays();
+            bgMusic.src = playlist[currentSongIndex].src;
+            masterGain.gain.value = 0; 
+            bgMusic.loop = true;
+            
+            bgMusic.play().then(() => {
+                let fadeVol = 0;
+                let fadeInInterval = setInterval(() => {
+                    fadeVol += 0.02; 
+                    if (fadeVol >= 0.4) {
+                        masterGain.gain.value = 0.4; 
+                        clearInterval(fadeInInterval);
+                    } else {
+                        masterGain.gain.value = fadeVol;
+                    }
+                }, 100);
+            }).catch(() => {
+                // If browser blocks auto-play on auto-login, wait for global click listener
+                console.log("Awaiting user interaction to play music.");
+            });
+        }
     } else {
         currentUser = null;
         authScreen.classList.remove('hidden');
         lobbyScreen.classList.add('hidden');
+        arcadeRoom.classList.add('zoomed-in-view');
     }
 });
 
@@ -454,7 +484,9 @@ function update(time) {
 // 6. INPUT HANDLING
 // ==========================================
 window.addEventListener('keydown', (e) => {
-    if (!isPlaying && !isPaused && isHost) {
+    // FIX 3: Ensure keyboard shortcuts only trigger if the Song Selection screen is active
+    // This prevents hitting Enter from hijacking the Auth/Lobby process.
+    if (!isPlaying && !isPaused && isHost && !startScreen.classList.contains('hidden')) {
         if (e.key === 'ArrowLeft') {
             initAudio(); playMenuSelectSound();
             currentSongIndex = (currentSongIndex - 1 + playlist.length) % playlist.length;
@@ -466,6 +498,11 @@ window.addEventListener('keydown', (e) => {
             updateSongDisplays(); bgMusic.src = playlist[currentSongIndex].src; bgMusic.play(); return;
         }
         if (e.key === 'Enter') return document.getElementById('start-btn').click();
+    }
+
+    if (e.key === 'Escape') {
+        if (isPlaying) togglePause();
+        return;
     }
 
     if (!isPlaying) return;
@@ -615,3 +652,10 @@ function playTone(f, type, t, dur, vol, dFreq = null) {
 }
 function playHitSound() { if (audioCtx) playTone(1200, 'square', audioCtx.currentTime, 0.05, 0.15, 800); }
 function playDamageSound() { if (audioCtx) { playTone(400, 'square', audioCtx.currentTime, 0.1, 0.3, 300); playTone(200, 'square', audioCtx.currentTime + 0.2, 0.2, 0.3, 100); } }
+
+// Global click listener to resume suspended audio contexts
+window.addEventListener('load', () => {
+    window.addEventListener('click', () => {
+        initAudio();
+    }, { once: true });
+});
