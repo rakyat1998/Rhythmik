@@ -1,6 +1,7 @@
 // ==========================================
 // 1. FIREBASE & WEBRTC SETUP
 // ==========================================
+// ⚠️ PASTE YOUR KEYS HERE
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyDHmyoBemXQFOxXsVmwFc5l4LHWKhZHtlI",
@@ -11,6 +12,7 @@ const firebaseConfig = {
   appId: "1:861227698308:web:a9f8802b0565aa7b7f9ad1",
   measurementId: "G-TGPGDJDJMD"
 };
+
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
@@ -116,6 +118,9 @@ let lastTime = 0;
 let arcadeShakeIntensity = 0;
 let slowMoTimer = 0;
 let menuFadeInterval;
+
+window.musicReaction = 0;
+window.musicHue = 0;
 
 const comboColors = ['#fff', '#00ffcc', '#ffaa00', '#ff0055', '#b300ff', '#ff0000'];
 const shredPhrases = ["NICE!", "BRUTAL!", "SHREDDING!", "UNREAL!", "GODLIKE!"];
@@ -224,7 +229,7 @@ auth.onAuthStateChanged(async (user) => {
             authScreen.classList.add('hidden');
             lobbyScreen.classList.remove('hidden');
             uiState = 'LOBBY_MODE';
-            targetMachinePower = 1.0;
+            targetMachinePower = 1.0; // Power up the arcade machines visually
             updateLobbyUI();
             updateSongDisplays();
             startMenuMusic(true);
@@ -305,7 +310,7 @@ window.addEventListener('keydown', (e) => {
             activeLetters.splice(targetIndex, 1);
             if (letter.type === 'normal') playHitSound(); else triggerPowerUp(letter);
             
-            arcadeShakeIntensity = Math.max(arcadeShakeIntensity, 15); 
+            arcadeShakeIntensity = Math.max(arcadeShakeIntensity, 35); // Big hit shake
             comboCount++; if (comboCount > 0 && comboCount % 6 === 0) comboMultiplier++;
             
             createExplosion(letter.x, letter.y, letter.color);
@@ -618,21 +623,32 @@ function update(time) {
     if (slowMoTimer > 0) {
         slowMoTimer -= dt;
         arcadeCabinet.classList.add('flash-slow');
-        // Smoothly slow down to 50%
+        // Smoothly slide down to 50% speed
         currentPlaybackRate += (0.5 - currentPlaybackRate) * dt * 3.0; 
         currentFallSpeed += ((targetFallSpeed * 0.4) - currentFallSpeed) * dt * 3.0;
     } else {
         arcadeCabinet.classList.remove('flash-slow');
-        // Instantly return to normal speed
-        currentPlaybackRate = targetPlaybackRate;
-        currentFallSpeed = targetFallSpeed;
+        // Instantly snap back to normal speed when timer ends
+        if (currentPlaybackRate < targetPlaybackRate) {
+            currentPlaybackRate = targetPlaybackRate;
+            currentFallSpeed = targetFallSpeed;
+        }
     }
     bgMusic.playbackRate = Math.max(0.1, currentPlaybackRate);
 
-    if (arcadeShakeIntensity > 0.5) {
-        arcadeCabinet.style.transform = `translate3d(${(Math.random() - 0.5) * arcadeShakeIntensity}px, ${94 + (Math.random() - 0.5) * arcadeShakeIntensity}px, 1380px)`;
+    // Dynamic Screen Shake mapped to music intensity
+    let currentShake = arcadeShakeIntensity;
+    if (isPlaying && slowMoTimer <= 0) {
+        currentShake += (window.musicReaction || 0) * 8; 
+    }
+
+    if (currentShake > 0.5) {
+        arcadeCabinet.style.transform = `translate3d(${(Math.random() - 0.5) * currentShake}px, ${94 + (Math.random() - 0.5) * currentShake}px, 1380px)`;
         arcadeShakeIntensity *= 0.85; 
-    } else { arcadeCabinet.style.transform = `translate3d(0px, 94px, 1380px)`; }
+        if(arcadeShakeIntensity < 0.1) arcadeShakeIntensity = 0;
+    } else { 
+        arcadeCabinet.style.transform = `translate3d(0px, 94px, 1380px)`; 
+    }
 
     if (isHost && bgMusic.currentTime >= nextSpawnTime && bgMusic.currentTime > 0) {
         spawnLetterLogic();
@@ -642,7 +658,7 @@ function update(time) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (gameMode === '1v1') { ctx.strokeStyle = '#333'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(400, 0); ctx.lineTo(400, 600); ctx.stroke(); }
 
-    // Render Explosions
+    // Render Hit Explosions (Foreground Particles)
     for (let i = particles.length - 1; i >= 0; i--) {
         let p = particles[i]; 
         p.vy += 1000 * dt; 
@@ -721,10 +737,8 @@ function triggerPowerUp(letter) {
         arcadeShakeIntensity = 80; playNukeSound();
         arcadeCabinet.classList.add('flash-nuke');
         setTimeout(() => arcadeCabinet.classList.remove('flash-nuke'), 500);
-        let pointsGained = 0; let explosionsCount = 0;
+        let pointsGained = 0;
         for (let i = activeLetters.length - 1; i >= 0; i--) {
-            let l = activeLetters[i]; 
-            if (explosionsCount < 8) { createExplosion(l.x, l.y, l.color, 1.5); explosionsCount++; }
             pointsGained += (10 * comboMultiplier);
         }
         score += pointsGained;
@@ -838,46 +852,69 @@ function drawBackground() {
     for(let i = 0; i < bassCount; i++) bassSum += dataArray[i];
     const reaction = (bassCount > 0 ? (bassSum / bassCount) : 0) / 255;
     
+    // Export values for gameplay shake script
+    window.musicReaction = reaction;
+    window.musicHue = ((bassSum / bassCount) * 1.5) % 360;
+
     bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
-    const cx = bgCanvas.width / 2; const cy = bgCanvas.height / 2; const hue = ((bassSum / bassCount) * 1.5) % 360;
+    const cx = bgCanvas.width / 2; const cy = bgCanvas.height / 2; 
     
-    // Core Aura
-    const grad = bgCtx.createRadialGradient(cx, cy, 0, cx, cy, reaction * (cx*1.2) + 150);
-    grad.addColorStop(0, `hsla(${hue}, 90%, 50%, ${(0.1 + reaction * 0.2) * machinePower})`); 
-    grad.addColorStop(1, `transparent`);
-    bgCtx.fillStyle = grad; bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
-    
-    // Render the Disco Visualizer only during Menu states
+    // Render Full-Screen Disco Visualizer ONLY during Menu states
     if (uiState === 'LOBBY_MODE' || uiState === 'LOBBY_JOIN' || uiState === 'START') {
-        const barWidth = Math.ceil(bgCanvas.width / dataArray.length);
+        const barWidth = Math.ceil(bgCanvas.width / dataArray.length) * 2;
         for(let i = 0; i < dataArray.length; i++) {
             const heightPct = dataArray[i] / 255;
-            const barHeight = heightPct * bgCanvas.height * 0.8 * machinePower;
-            bgCtx.fillStyle = `hsla(${(hue + i*5) % 360}, 100%, 50%, ${0.5 * machinePower})`;
+            // Stretch the equalizer to the absolute top of the viewport
+            const barHeight = heightPct * bgCanvas.height * 1.2 * machinePower;
+            
+            let barGrad = bgCtx.createLinearGradient(0, bgCanvas.height, 0, bgCanvas.height - barHeight);
+            barGrad.addColorStop(0, `hsla(${(window.musicHue + i*3) % 360}, 100%, 20%, ${0.8 * machinePower})`);
+            barGrad.addColorStop(1, `hsla(${(window.musicHue + i*3) % 360}, 100%, 60%, ${0.8 * machinePower})`);
+            
+            bgCtx.fillStyle = barGrad;
             bgCtx.fillRect(i * barWidth, bgCanvas.height - barHeight, barWidth + 1, barHeight);
         }
+    } else if (uiState === 'PLAYING') {
+        // Plain dark background for gameplay, no distraction particles
+        const grad = bgCtx.createRadialGradient(cx, cy, 0, cx, cy, reaction * (cx*1.2) + 150);
+        grad.addColorStop(0, `hsla(${window.musicHue}, 90%, 50%, ${(0.05 + reaction * 0.1) * machinePower})`); 
+        grad.addColorStop(1, `transparent`);
+        bgCtx.fillStyle = grad; bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
     }
 
-    // Apply Lerped machinePower to the physical arcade machines so they look unpowered initially
+    // Unpowered baseline state
     let dynBright = 0.1 + (0.55 + reaction * 0.5) * machinePower; 
     let gray = 1 - machinePower;
-    let cabFilter = `grayscale(${gray}) hue-rotate(${hue}deg) brightness(${dynBright}) contrast(1.2)`;
+    let cabFilter = `grayscale(${gray}) hue-rotate(${window.musicHue}deg) brightness(${dynBright}) contrast(1.2)`;
     
     leftCab.style.filter = cabFilter;
     rightCab.style.filter = cabFilter;
     
-    const cabGlow = `0 40px 100px rgba(0,0,0,1), 0 0 ${50 + reaction * 250}px hsla(${hue}, 100%, 60%, ${reaction * 0.8 * machinePower})`;
-    leftCab.style.boxShadow = cabGlow; rightCab.style.boxShadow = cabGlow;
+    const sideGlow = `0 40px 100px rgba(0,0,0,1), 0 0 ${50 + reaction * 250}px hsla(${window.musicHue}, 100%, 60%, ${reaction * 0.8 * machinePower})`;
+    leftCab.style.boxShadow = sideGlow; rightCab.style.boxShadow = sideGlow;
 
-    // Apply darkening specifically to the physical cabinet chassis, isolating the screen UI
+    // Isolate screen UI; Center Cabinet reacts heavily during gameplay
     const parts = arcadeCabinet.querySelectorAll('.chameleon-part');
     if (slowMoTimer <= 0) {
         parts.forEach(p => { 
-            if (!p.classList.contains('flash-nuke') && !p.classList.contains('flash-1up')) {
+            if (!p.classList.contains('flash-nuke') && !p.classList.contains('flash-1up') && !p.classList.contains('flash-combo')) {
                 p.style.animation = 'none'; 
-                p.style.filter = cabFilter; 
+                // Gameplay intensity vs Menu intensity
+                if(uiState === 'PLAYING') p.style.filter = `hue-rotate(${window.musicHue}deg) brightness(${1 + reaction * 0.5})`;
+                else p.style.filter = cabFilter; 
             }
         });
+        
+        if(uiState === 'PLAYING') {
+            const centerGlow = `0 40px 100px rgba(0,0,0,1), 0 0 ${100 + reaction * 400}px hsla(${window.musicHue}, 100%, 60%, ${0.5 + reaction * 0.5})`;
+            arcadeCabinet.style.boxShadow = centerGlow;
+        } else {
+            const centerGlow = `0 40px 100px rgba(0,0,0,1), 0 0 ${50 + reaction * 200}px hsla(${window.musicHue}, 100%, 50%, ${reaction * 0.6 * machinePower})`;
+            arcadeCabinet.style.boxShadow = centerGlow;
+        }
+    } else {
+        // Slow-Mo override
+        arcadeCabinet.style.boxShadow = `0 40px 100px rgba(0,0,0,1), 0 0 150px rgba(0, 255, 255, ${0.8 * machinePower})`;
     }
 }
 
