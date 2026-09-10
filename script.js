@@ -1,14 +1,16 @@
 // ==========================================
 // 1. FIREBASE & WEBRTC SETUP
 // ==========================================
-// ⚠️ REPLACE THIS ENTIRE BLOCK WITH YOUR REAL FIREBASE KEYS ⚠️
+
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDHmyoBemXQFOxXsVmwFc5l4LHWKhZHtlI",
+  authDomain: "teamrhythmik.firebaseapp.com",
+  projectId: "teamrhythmik",
+  storageBucket: "teamrhythmik.firebasestorage.app",
+  messagingSenderId: "861227698308",
+  appId: "1:861227698308:web:a9f8802b0565aa7b7f9ad1",
+  measurementId: "G-TGPGDJDJMD"
 };
 
 firebase.initializeApp(firebaseConfig);
