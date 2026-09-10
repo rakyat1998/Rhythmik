@@ -3,18 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>8-Bit Type Rhythm: Arcade Room</title>
+    <title>8-Bit Type Rhythm: Multiplayer Arcade</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
-    <!-- AURA AND PARTICLES CANVAS (Background) -->
     <canvas id="bg-canvas"></canvas>
 
     <div id="arcade-scaler">
         <div id="arcade-room" class="zoomed-in-view">
             
-            <!-- LEFT CABINET -->
             <div class="arcade-cabinet left-cabinet">
                 <div class="marquee"><h1>RHYTHMIK</h1></div>
                 <div class="screen-section">
@@ -26,17 +28,10 @@
                         </div>
                     </div>
                 </div>
-                <div class="control-panel-wrapper">
-                    <div class="control-panel">
-                        <div class="start-buttons"><div class="p1-start"></div></div>
-                        <div class="joystick-base"><div class="joystick-shaft"></div><div class="joystick-ball"></div></div>
-                        <div class="buttons-container"><div class="action-button btn-red"></div><div class="action-button btn-blue"></div><div class="action-button btn-green"></div></div>
-                    </div>
-                </div>
-                <div class="cabinet-base"><div class="coin-door-panel"><div class="coin-slot"><div class="coin-insert"></div><div class="coin-return"></div></div></div></div>
+                <div class="control-panel-wrapper"><div class="control-panel"></div></div>
+                <div class="cabinet-base"><div class="coin-door-panel"></div></div>
             </div>
 
-            <!-- CENTER ACTIVE CABINET -->
             <div class="arcade-cabinet center-cabinet" id="arcade-cabinet">
                 <div class="marquee chameleon-part">
                     <h1>RHYTHMIK<br><span>OVERKILL</span></h1>
@@ -56,48 +51,80 @@
                                 </div>
                                 
                                 <div id="track-info">NOW PLAYING: <span id="current-track">NONE</span></div>
+                                
+                                <!-- 1V1 TUG OF WAR BAR -->
+                                <div id="tug-of-war-bar" class="hidden">
+                                    <div id="tug-p1"></div>
+                                    <div id="tug-marker"></div>
+                                    <div id="tug-p2"></div>
+                                </div>
 
                                 <canvas id="gameCanvas" width="800" height="600"></canvas>
 
-                                <!-- INITIAL INTRO SCREEN -->
-                                <div id="intro-screen" class="overlay">
+                                <!-- AUTH SCREEN -->
+                                <div id="auth-screen" class="overlay">
                                     <h1>RHYTHMIK</h1>
-                                    <p>PRESS ENTER</p>
+                                    <h2 style="color: #ff0055; font-size:12px; margin-bottom:20px;">AUTHENTICATION REQUIRED</h2>
+                                    <input type="text" id="auth-username" placeholder="USERNAME" class="retro-input" maxlength="12">
+                                    <input type="email" id="auth-email" placeholder="EMAIL" class="retro-input">
+                                    <input type="password" id="auth-password" placeholder="PASSWORD" class="retro-input">
+                                    <div>
+                                        <button id="btn-login">LOGIN</button>
+                                        <button id="btn-register" class="selected-btn">REGISTER</button>
+                                    </div>
+                                    <p id="auth-error" style="color:#ff0000; font-size:10px; margin-top:15px;"></p>
+                                </div>
+
+                                <!-- LOBBY SCREEN -->
+                                <div id="lobby-screen" class="overlay hidden">
+                                    <h2 style="color: #0ff; font-size: 16px;">WELCOME, <span id="lobby-username">PLAYER</span></h2>
+                                    
+                                    <div style="margin: 20px 0; border: 2px dashed #ff0055; padding: 15px; background: rgba(255,0,85,0.1);">
+                                        <h3 style="font-size:12px; margin-bottom:15px;">SELECT MODE</h3>
+                                        <button id="btn-mode-solo" class="selected-btn">SOLO</button>
+                                        <button id="btn-mode-duo">DUO (CO-OP)</button>
+                                        <button id="btn-mode-1v1">1v1 (VERSUS)</button>
+                                    </div>
+
+                                    <div id="multiplayer-controls" class="hidden" style="margin-top:20px;">
+                                        <button id="btn-create-room">CREATE ROOM</button>
+                                        <p style="font-size:10px; margin: 10px 0;">OR</p>
+                                        <input type="text" id="join-room-id" placeholder="ENTER ROOM ID" class="retro-input" style="width: 200px;">
+                                        <button id="btn-join-room">JOIN ROOM</button>
+                                    </div>
+
+                                    <div id="room-waiting" class="hidden" style="margin-top:20px; color:#0f0;">
+                                        <p>ROOM CREATED!</p>
+                                        <p style="font-size:20px; margin:10px 0; color:#fff;">ID: <span id="display-room-id">-----</span></p>
+                                        <p class="blink">WAITING FOR P2...</p>
+                                    </div>
                                 </div>
 
                                 <!-- SONG SELECTION SCREEN -->
                                 <div id="start-screen" class="overlay hidden">
-                                    <h1>TYPE RHYTHM</h1>
-                                    <h2 style="color: #ff0055; margin-top:10px;">OVERKILL EDITION</h2>
+                                    <h1 id="mode-title-display">SOLO MODE</h1>
                                     
                                     <div id="song-selection-display">
-                                        <div style="font-size:10px; color:#aaa; margin-bottom:10px;">USE [◀] / [▶] TO SELECT TRACK</div>
+                                        <div style="font-size:10px; color:#aaa; margin-bottom:10px;">HOST: SELECT TRACK</div>
                                         <span id="center-song-title">MASTER OF PUPPETS</span>
                                     </div>
 
-                                    <p style="line-height: 1.8; font-size: 10px; color: #ccc;">
-                                        <span style="color:#0f0">+ A +</span> 1-UP | 
-                                        <span style="color:#0ff">~ A ~</span> SLOW-MO | 
-                                        <span style="color:#f50">[ A ]</span> NUKE
-                                    </p>
-                                    <button id="start-btn">INSERT COIN [ENTER]</button>
+                                    <button id="start-btn">BEGIN GAME [ENTER]</button>
                                 </div>
 
                                 <div id="pause-screen" class="overlay hidden">
                                     <h1 style="color: #ffaa00;">PAUSED</h1>
                                     <button id="resume-btn" class="selected-btn">RESUME</button>
-                                    <button id="quit-btn" style="background-color: #333; color: #fff;">QUIT GAME</button>
+                                    <button id="quit-btn" style="background-color: #333; color: #fff;">QUIT</button>
                                 </div>
 
                                 <div id="game-over-screen" class="overlay hidden">
-                                    <h1 style="color: #fff; text-shadow: 0 0 20px #f00;">WASTED</h1>
+                                    <h1 id="game-over-title" style="color: #fff; text-shadow: 0 0 20px #f00;">WASTED</h1>
                                     <p>FINAL SCORE: <span id="final-score">0</span></p>
-                                    <button id="restart-btn">CONTINUE? [ENTER]</button>
+                                    <button id="restart-btn">RETURN TO LOBBY</button>
                                 </div>
                             </div>
                         </div>
-                        
-                        <!-- Global Realistic CRT Overlay (Covers Menu & Gameplay) -->
                         <div class="crt-overlay"></div>
                     </div>
                 </div>
@@ -130,14 +157,8 @@
                         </div>
                     </div>
                 </div>
-                <div class="control-panel-wrapper">
-                    <div class="control-panel">
-                        <div class="start-buttons"><div class="p1-start"></div></div>
-                        <div class="joystick-base"><div class="joystick-shaft"></div><div class="joystick-ball"></div></div>
-                        <div class="buttons-container"><div class="action-button btn-red"></div><div class="action-button btn-blue"></div><div class="action-button btn-green"></div></div>
-                    </div>
-                </div>
-                <div class="cabinet-base"><div class="coin-door-panel"><div class="coin-slot"><div class="coin-insert"></div><div class="coin-return"></div></div></div></div>
+                <div class="control-panel-wrapper"><div class="control-panel"></div></div>
+                <div class="cabinet-base"><div class="coin-door-panel"></div></div>
             </div>
 
         </div>
