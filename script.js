@@ -1,15 +1,13 @@
 // ==========================================
 // 1. FIREBASE & WEBRTC SETUP
 // ==========================================
-
 const firebaseConfig = {
-  apiKey: "AIzaSyDHmyoBemXQFOxXsVmwFc5l4LHWKhZHtlI",
-  authDomain: "teamrhythmik.firebaseapp.com",
-  projectId: "teamrhythmik",
-  storageBucket: "teamrhythmik.firebasestorage.app",
-  messagingSenderId: "861227698308",
-  appId: "1:861227698308:web:a9f8802b0565aa7b7f9ad1",
-  measurementId: "G-TGPGDJDJMD"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -63,8 +61,13 @@ const trackEl = document.getElementById('current-track');
 const finalScoreEl = document.getElementById('final-score');
 const tugBar = document.getElementById('tug-of-war-bar');
 const tugP1 = document.getElementById('tug-p1');
-const resumeBtn = document.getElementById('resume-btn');
-const quitBtn = document.getElementById('quit-btn');
+
+// UI State Machine variables for Keyboard-only navigation
+let uiState = 'AUTH'; 
+let authSelect = 0; // 0: Login, 1: Register
+let lobbyModeSelect = 0; // 0: Solo, 1: Duo, 2: 1v1
+let lobbyJoinSelect = 0; // 0: Create, 1: Join Input
+let pauseSelect = 0; // 0: Resume, 1: Quit
 
 const playlist = [
     { title: "Master of Puppets", src: "audio/mop.mp3", bpm: 212 },
@@ -100,6 +103,7 @@ let isPaused = false;
 let nextSpawnTime = 0;
 let beatInterval = 0;
 let targetPlaybackRate = 1.0; 
+let currentPlaybackRate = 1.0;
 let targetFallSpeed = 200; 
 let currentFallSpeed = 200;
 let lastTime = 0;
@@ -135,16 +139,13 @@ function initAudio() {
     }
 }
 
-// Automatically bypass strict browser audio policies on the first click
 function unlockAudio() {
     if (audioUnlocked) return;
     initAudio();
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    
     const buffer = audioCtx.createBuffer(1, 1, 22050);
     const source = audioCtx.createBufferSource();
     source.buffer = buffer; source.connect(audioCtx.destination); source.start(0);
-    
     audioUnlocked = true;
     if (currentUser && !isPlaying && bgMusic.paused) startMenuMusic(true);
 }
@@ -157,6 +158,8 @@ function startMenuMusic(fadeIn = false) {
     
     bgMusic.src = playlist[currentSongIndex].src;
     bgMusic.loop = true;
+    currentPlaybackRate = 1.0;
+    bgMusic.playbackRate = 1.0;
     
     if (fadeIn && masterGain) {
         masterGain.gain.value = 0;
@@ -207,7 +210,9 @@ auth.onAuthStateChanged(async (user) => {
         document.getElementById('lobby-username').innerText = currentUsername;
         authScreen.classList.add('hidden');
         lobbyScreen.classList.remove('hidden');
-        arcadeRoom.classList.remove('zoomed-in-view'); // Reveals full arcade
+        arcadeRoom.classList.remove('zoomed-in-view'); 
+        uiState = 'LOBBY_MODE';
+        updateLobbyUI();
         updateSongDisplays();
         startMenuMusic(true);
     } else {
@@ -215,34 +220,157 @@ auth.onAuthStateChanged(async (user) => {
         authScreen.classList.remove('hidden');
         lobbyScreen.classList.add('hidden');
         arcadeRoom.classList.add('zoomed-in-view');
+        uiState = 'AUTH';
+        updateAuthUI();
     }
 });
 
 // ==========================================
-// 5. LOBBY & MATCHMAKING LOGIC
+// 5. KEYBOARD-ONLY UI NAVIGATION ENGINE
 // ==========================================
-document.getElementById('btn-mode-solo').addEventListener('click', () => setMode('solo'));
-document.getElementById('btn-mode-duo').addEventListener('click', () => setMode('duo'));
-document.getElementById('btn-mode-1v1').addEventListener('click', () => setMode('1v1'));
+function updateAuthUI() {
+    document.getElementById('btn-login').classList.toggle('selected-btn', authSelect === 0);
+    document.getElementById('btn-register').classList.toggle('selected-btn', authSelect === 1);
+}
 
-function setMode(mode) {
-    gameMode = mode;
-    document.querySelectorAll('#lobby-screen button').forEach(b => b.classList.remove('selected-btn'));
-    document.getElementById(`btn-mode-${mode}`).classList.add('selected-btn');
-    
-    if (mode === 'solo') {
-        document.getElementById('multiplayer-controls').classList.add('hidden');
-        lobbyScreen.classList.add('hidden');
-        document.getElementById('mode-title-display').innerText = "SOLO MODE";
-        startScreen.classList.remove('hidden');
-        isHost = true;
+function updateLobbyUI() {
+    const btns = [document.getElementById('btn-mode-solo'), document.getElementById('btn-mode-duo'), document.getElementById('btn-mode-1v1')];
+    btns.forEach((b, i) => b.classList.toggle('selected-btn', i === lobbyModeSelect));
+    gameMode = ['solo', 'duo', '1v1'][lobbyModeSelect];
+}
+
+function updateJoinUI() {
+    document.getElementById('btn-create-room').classList.toggle('selected-btn', lobbyJoinSelect === 0);
+    document.getElementById('btn-join-room').classList.toggle('selected-btn', lobbyJoinSelect === 1);
+    if(lobbyJoinSelect === 1) {
+        document.getElementById('join-room-id').focus();
+        document.getElementById('join-room-id').style.borderColor = '#ff0055';
     } else {
-        document.getElementById('multiplayer-controls').classList.remove('hidden');
+        document.getElementById('join-room-id').blur();
+        document.getElementById('join-room-id').style.borderColor = '#0ff';
     }
 }
 
-document.getElementById('btn-create-room').addEventListener('click', async () => {
-    isHost = true;
+function updatePauseUI() {
+    document.getElementById('resume-btn').classList.toggle('selected-btn', pauseSelect === 0);
+    document.getElementById('quit-btn').classList.toggle('selected-btn', pauseSelect === 1);
+}
+
+window.addEventListener('keydown', (e) => {
+    // 1. In-Game State
+    if (uiState === 'PLAYING') {
+        if (e.key === 'Escape') { togglePause(); return; }
+        
+        const key = e.key.toUpperCase();
+        const myId = isHost ? 1 : 2;
+        let targetIndex = -1; let maxY = -100;
+        for (let i = 0; i < activeLetters.length; i++) {
+            if ((gameMode === 'solo' || activeLetters[i].owner === myId) && activeLetters[i].char === key && activeLetters[i].y > maxY) {
+                maxY = activeLetters[i].y; targetIndex = i;
+            }
+        }
+
+        if (targetIndex !== -1) {
+            const letter = activeLetters[targetIndex];
+            activeLetters.splice(targetIndex, 1);
+            if (letter.type === 'normal') playHitSound(); else triggerPowerUp(letter);
+            
+            arcadeShakeIntensity = Math.max(arcadeShakeIntensity, 15); 
+            comboCount++; if (comboCount > 0 && comboCount % 6 === 0) comboMultiplier++;
+            createExplosion(letter.x, letter.y, letter.color);
+            
+            if (letter.type === 'normal') {
+                score += 10 * comboMultiplier;
+                floatingTexts.push({ text: "+" + (10 * comboMultiplier), x: letter.x, y: letter.y, life: 1.0, size: 16, color: '#fff' });
+            }
+            targetFallSpeed = Math.min(800, targetFallSpeed + 2); 
+            updateUI();
+            if (gameMode !== 'solo') broadcast({ type: 'HIT_LETTER', id: letter.id, score });
+        }
+        return;
+    }
+
+    // 2. Menu Navigation States
+    switch(uiState) {
+        case 'AUTH':
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                authSelect = authSelect === 0 ? 1 : 0;
+                playMenuSelectSound(); updateAuthUI();
+            } else if (e.key === 'Enter') {
+                playMenuSelectSound();
+                if(authSelect === 0) document.getElementById('btn-login').click();
+                else document.getElementById('btn-register').click();
+            }
+            break;
+
+        case 'LOBBY_MODE':
+            if (e.key === 'ArrowLeft') { lobbyModeSelect = (lobbyModeSelect - 1 + 3) % 3; playMenuSelectSound(); updateLobbyUI(); }
+            else if (e.key === 'ArrowRight') { lobbyModeSelect = (lobbyModeSelect + 1) % 3; playMenuSelectSound(); updateLobbyUI(); }
+            else if (e.key === 'Enter') {
+                playMenuSelectSound();
+                if (lobbyModeSelect === 0) {
+                    uiState = 'START'; isHost = true;
+                    lobbyScreen.classList.add('hidden');
+                    document.getElementById('mode-title-display').innerText = "SOLO MODE";
+                    startScreen.classList.remove('hidden');
+                } else {
+                    uiState = 'LOBBY_JOIN'; lobbyJoinSelect = 0;
+                    document.getElementById('multiplayer-controls').classList.remove('hidden');
+                    updateJoinUI();
+                }
+            }
+            break;
+
+        case 'LOBBY_JOIN':
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                lobbyJoinSelect = lobbyJoinSelect === 0 ? 1 : 0;
+                playMenuSelectSound(); updateJoinUI();
+            } else if (e.key === 'Enter') {
+                playMenuSelectSound();
+                if (lobbyJoinSelect === 0) createRoom();
+                else joinRoom();
+            } else if (e.key === 'Escape') {
+                document.getElementById('multiplayer-controls').classList.add('hidden');
+                uiState = 'LOBBY_MODE'; updateLobbyUI();
+            }
+            break;
+
+        case 'START':
+            if (isHost && !document.getElementById('start-btn').classList.contains('hidden')) {
+                if (e.key === 'ArrowLeft') {
+                    currentSongIndex = (currentSongIndex - 1 + playlist.length) % playlist.length;
+                    playMenuSelectSound(); updateSongDisplays(); startMenuMusic();
+                } else if (e.key === 'ArrowRight') {
+                    currentSongIndex = (currentSongIndex + 1) % playlist.length;
+                    playMenuSelectSound(); updateSongDisplays(); startMenuMusic();
+                } else if (e.key === 'Enter') {
+                    playMenuSelectSound();
+                    if (gameMode !== 'solo') broadcast({ type: 'START_GAME', songIndex: currentSongIndex });
+                    startGameSequence();
+                } else if (e.key === 'Escape' && gameMode === 'solo') {
+                    startScreen.classList.add('hidden'); lobbyScreen.classList.remove('hidden');
+                    uiState = 'LOBBY_MODE'; updateLobbyUI();
+                }
+            }
+            break;
+
+        case 'PAUSED':
+            if (e.key === 'Escape') togglePause();
+            else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { pauseSelect = pauseSelect === 0 ? 1 : 0; playMenuSelectSound(); updatePauseUI(); }
+            else if (e.key === 'Enter') { playMenuSelectSound(); if (pauseSelect === 0) togglePause(); else quitGame(); }
+            break;
+
+        case 'GAMEOVER':
+            if (e.key === 'Enter') { playMenuSelectSound(); document.getElementById('restart-btn').click(); }
+            break;
+    }
+});
+
+// ==========================================
+// 6. LOBBY & MATCHMAKING LOGIC
+// ==========================================
+async function createRoom() {
+    uiState = 'WAITING'; isHost = true;
     document.getElementById('multiplayer-controls').classList.add('hidden');
     document.getElementById('room-waiting').classList.remove('hidden');
     
@@ -266,15 +394,16 @@ document.getElementById('btn-create-room').addEventListener('click', async () =>
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
         }
     });
-});
+}
 
-document.getElementById('btn-join-room').addEventListener('click', async () => {
+async function joinRoom() {
     const inputId = document.getElementById('join-room-id').value.toUpperCase();
-    isHost = false;
-
+    if(inputId.length < 5) return;
+    
+    uiState = 'WAITING'; isHost = false;
     const roomsRef = db.collection('rooms');
     const q = await roomsRef.where('roomId', '==', inputId).get();
-    if (q.empty) return alert("ROOM NOT FOUND");
+    if (q.empty) { alert("ROOM NOT FOUND"); uiState = 'LOBBY_JOIN'; return; }
     
     const roomRef = q.docs[0].ref;
     const roomData = q.docs[0].data();
@@ -292,14 +421,12 @@ document.getElementById('btn-join-room').addEventListener('click', async () => {
     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
-
     await roomRef.update({ answer: { type: answer.type, sdp: answer.sdp } });
-});
+}
 
 function collectIceCandidates(roomRef, pc, localName, remoteName) {
     const localCollection = roomRef.collection(localName);
     const remoteCollection = roomRef.collection(remoteName);
-
     pc.onicecandidate = event => { if (event.candidate) localCollection.add(event.candidate.toJSON()); };
     remoteCollection.onSnapshot(snapshot => {
         snapshot.docChanges().forEach(async change => {
@@ -310,16 +437,17 @@ function collectIceCandidates(roomRef, pc, localName, remoteName) {
 
 function setupDataChannel(dc) {
     dc.onopen = () => {
+        uiState = 'START';
         lobbyScreen.classList.add('hidden');
-        startScreen.classList.remove('hidden');
         document.getElementById('mode-title-display').innerText = gameMode === 'duo' ? "DUO CO-OP" : "1V1 VERSUS";
+        startScreen.classList.remove('hidden');
         
         if (!isHost) {
             document.getElementById('start-btn').innerText = "WAITING FOR HOST...";
-            document.getElementById('start-btn').disabled = true;
+            document.getElementById('start-btn').classList.remove('selected-btn');
         } else {
             document.getElementById('start-btn').innerText = "BEGIN GAME [ENTER]";
-            document.getElementById('start-btn').disabled = false;
+            document.getElementById('start-btn').classList.add('selected-btn');
         }
     };
     
@@ -343,84 +471,15 @@ function broadcast(msgObj) {
 }
 
 // ==========================================
-// 6. INPUT HANDLING
+// 7. CORE GAMEPLAY ENGINE
 // ==========================================
-window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { if (isPlaying) togglePause(); return; }
-
-    if (isPaused) {
-        if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { pauseSelectedIndex = 0; updatePauseMenuUI(); } 
-        else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { pauseSelectedIndex = 1; updatePauseMenuUI(); } 
-        else if (e.key === 'Enter') { if (pauseSelectedIndex === 0) togglePause(); else quitGame(); }
-        return;
-    }
-
-    if (!isPlaying && !isPaused && isHost && !startScreen.classList.contains('hidden')) {
-        if (e.key === 'ArrowLeft') {
-            playMenuSelectSound();
-            currentSongIndex = (currentSongIndex - 1 + playlist.length) % playlist.length;
-            updateSongDisplays(); startMenuMusic(); return;
-        }
-        if (e.key === 'ArrowRight') {
-            playMenuSelectSound();
-            currentSongIndex = (currentSongIndex + 1) % playlist.length;
-            updateSongDisplays(); startMenuMusic(); return;
-        }
-        if (e.key === 'Enter' && !document.getElementById('start-btn').disabled) {
-            return document.getElementById('start-btn').click();
-        }
-    }
-
-    if (!isPlaying) return;
-
-    const key = e.key.toUpperCase();
-    const myId = isHost ? 1 : 2;
-    
-    let targetIndex = -1; let maxY = -100;
-    for (let i = 0; i < activeLetters.length; i++) {
-        if ((gameMode === 'solo' || activeLetters[i].owner === myId) && activeLetters[i].char === key && activeLetters[i].y > maxY) {
-            maxY = activeLetters[i].y; targetIndex = i;
-        }
-    }
-
-    if (targetIndex !== -1) {
-        const letter = activeLetters[targetIndex];
-        activeLetters.splice(targetIndex, 1);
-        
-        if (letter.type === 'normal') playHitSound(); else triggerPowerUp(letter);
-        arcadeShakeIntensity = Math.max(arcadeShakeIntensity, 15); 
-        comboCount++;
-        if (comboCount > 0 && comboCount % 6 === 0) comboMultiplier++;
-        
-        createExplosion(letter.x, letter.y, letter.color);
-        if (letter.type === 'normal') {
-            score += 10 * comboMultiplier;
-            floatingTexts.push({ text: "+" + (10 * comboMultiplier), x: letter.x, y: letter.y, life: 1.0, size: 16, color: '#fff' });
-        }
-        targetFallSpeed = Math.min(800, targetFallSpeed + 2); 
-        updateUI();
-
-        if (gameMode !== 'solo') broadcast({ type: 'HIT_LETTER', id: letter.id, score });
-    }
-});
-
-// ==========================================
-// 7. GAME STATE MGMT
-// ==========================================
-document.getElementById('start-btn').addEventListener('click', () => {
-    if (isHost) {
-        if (gameMode !== 'solo') broadcast({ type: 'START_GAME', songIndex: currentSongIndex });
-        startGameSequence();
-    }
-});
-
 function startGameSequence() {
+    uiState = 'LOADING';
     unlockAudio();
     playCoinSound();
     currentSong = playlist[currentSongIndex];
     trackEl.innerText = currentSong.title;
 
-    // Loading UI Changes
     document.getElementById('start-btn').classList.add('hidden');
     document.getElementById('loading-indicator').classList.remove('hidden');
 
@@ -428,10 +487,10 @@ function startGameSequence() {
     bgMusic.src = currentSong.src;
     bgMusic.loop = false;
     if (masterGain) masterGain.gain.value = 0; 
-    
     bgMusic.load();
 
     const onAudioReady = () => {
+        if(uiState === 'PLAYING') return;
         bgMusic.removeEventListener('canplaythrough', onAudioReady);
 
         arcadeRoom.classList.add('game-running');
@@ -440,8 +499,9 @@ function startGameSequence() {
 
         activeLetters = []; particles = []; floatingTexts = [];
         score = 0; opponentScore = 0; currentRound = 1; comboCount = 0; comboMultiplier = 1; lives = 3;
-        arcadeShakeIntensity = 0; slowMoTimer = 0; targetPlaybackRate = 1.0; bgMusic.playbackRate = 1.0;
-        targetFallSpeed = 200; currentFallSpeed = 200; beatInterval = 60 / currentSong.bpm; 
+        arcadeShakeIntensity = 0; slowMoTimer = 0; 
+        currentPlaybackRate = 1.0; targetPlaybackRate = 1.0; bgMusic.playbackRate = 1.0;
+        currentFallSpeed = 200; targetFallSpeed = 200; beatInterval = 60 / currentSong.bpm; 
         
         startScreen.classList.add('hidden'); 
         document.getElementById('loading-indicator').classList.add('hidden');
@@ -450,99 +510,16 @@ function startGameSequence() {
             bgMusic.currentTime = 0; 
             if (masterGain) masterGain.gain.value = 1.0; 
             nextSpawnTime = 0.1;
-            isPlaying = true; isPaused = false; 
+            isPlaying = true; isPaused = false; uiState = 'PLAYING';
             bgMusic.play().catch(e => console.log("Audio play blocked", e));
             updateUI(); lastTime = performance.now(); requestAnimationFrame(update);
         }, 2200); 
     };
 
     bgMusic.addEventListener('canplaythrough', onAudioReady);
-    
-    // Safety fallback just in case the event fails to fire
-    setTimeout(() => { if (!isPlaying && !startScreen.classList.contains('hidden')) onAudioReady(); }, 5000);
+    if (bgMusic.readyState >= 3) onAudioReady();
+    setTimeout(() => { if (uiState === 'LOADING') onAudioReady(); }, 5000); // Safety fallback
 }
-
-function updateUI() {
-    scoreEl.innerText = score; comboEl.innerText = comboCount; multiplierEl.innerText = 'x' + comboMultiplier;
-    roundUiEl.innerText = 'ROUND ' + currentRound;
-    
-    let hearts = ""; for(let i=0; i<lives; i++) hearts += "♥"; livesEl.innerText = hearts;
-    if (lives === 1) gameContainer.classList.add('danger-state'); else gameContainer.classList.remove('danger-state');
-    
-    const colorIndex = Math.min(comboMultiplier - 1, comboColors.length - 1);
-    comboContainer.style.color = comboColors[colorIndex];
-    
-    if (gameMode === '1v1') {
-        const myScore = isHost ? score : opponentScore;
-        const opScore = isHost ? opponentScore : score;
-        const diff = myScore - opScore;
-        
-        let percentage = (diff / (MAX_SCORE_DIFF * 2)) * 100 + 50;
-        percentage = Math.max(0, Math.min(100, percentage));
-        tugP1.style.width = percentage + "%";
-
-        if (diff >= MAX_SCORE_DIFF) triggerWin();
-        else if (diff <= -MAX_SCORE_DIFF) loseLife(true); 
-    }
-}
-
-function updateOpponentScore(opScore) { opponentScore = opScore; updateUI(); }
-
-function triggerWin() {
-    isPlaying = false;
-    document.getElementById('game-over-title').innerText = "VICTORY";
-    document.getElementById('game-over-title').style.color = '#0ff';
-    gameOverScreen.classList.remove('hidden');
-    bgMusic.pause();
-}
-
-function loseLife(instantDeath = false) {
-    lives = instantDeath ? 0 : lives - 1; comboCount = 0; comboMultiplier = 1;
-    arcadeShakeIntensity = 60; playDamageSound();
-    
-    gameContainer.classList.add('damage-flicker');
-    setTimeout(() => gameContainer.classList.remove('damage-flicker'), 400);
-    updateUI();
-    
-    if (lives <= 0) {
-        isPlaying = false;
-        document.getElementById('game-over-title').innerText = "WASTED";
-        document.getElementById('game-over-title').style.color = '#fff';
-        gameOverScreen.classList.remove('hidden');
-        bgMusic.pause();
-    } else {
-        slowMoTimer = 2.0; playSlowMoSound();
-    }
-}
-
-function quitGame() {
-    isPaused = false; isPlaying = false;
-    arcadeRoom.classList.remove('game-running');
-    pauseScreen.classList.add('hidden');
-    
-    startScreen.classList.add('hidden');
-    lobbyScreen.classList.remove('hidden');
-    document.getElementById('multiplayer-controls').classList.remove('hidden');
-    document.getElementById('room-waiting').classList.add('hidden');
-    
-    document.getElementById('start-btn').classList.remove('hidden');
-    document.getElementById('loading-indicator').classList.add('hidden');
-    
-    if (peerConnection) { peerConnection.close(); peerConnection = null; }
-    if (dataChannel) { dataChannel.close(); dataChannel = null; }
-    
-    gameContainer.classList.remove('danger-state');
-    arcadeCabinet.style.transform = ''; 
-    arcadeCabinet.classList.remove('slow-mo-active');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    startMenuMusic(true);
-}
-
-document.getElementById('restart-btn').addEventListener('click', () => {
-    gameOverScreen.classList.add('hidden');
-    quitGame();
-});
 
 function spawnLetterLogic() {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -580,18 +557,35 @@ function spawnLetterLogic() {
 
 function update(time) {
     if (!isPlaying || isPaused) return;
-    const dt = (time - lastTime) / 1000; lastTime = time;
+    // Cap DT to prevent massive particle explosions if browser lags
+    const dt = Math.min((time - lastTime) / 1000, 0.1); 
+    lastTime = time;
 
-    if (score >= 2000 && currentRound === 1) { currentRound = 2; targetPlaybackRate = 1.05; targetFallSpeed += 30; updateUI(); }
-    else if (score >= 4000 && currentRound === 2) { currentRound = 3; targetPlaybackRate = 1.10; targetFallSpeed += 30; updateUI(); }
+    // Progression
+    if (score >= 2000 && currentRound === 1) { currentRound = 2; targetPlaybackRate = 1.05; targetFallSpeed = 230; updateUI(); }
+    else if (score >= 4000 && currentRound === 2) { currentRound = 3; targetPlaybackRate = 1.10; targetFallSpeed = 260; updateUI(); }
 
-    if (slowMoTimer > 0) { slowMoTimer -= dt; currentFallSpeed = targetFallSpeed * 0.4; bgMusic.playbackRate = 0.6; } 
-    else { currentFallSpeed = targetFallSpeed; bgMusic.playbackRate = targetPlaybackRate; }
+    // Smooth Slow-mo Lerp
+    if (slowMoTimer > 0) {
+        slowMoTimer -= dt;
+        arcadeCabinet.classList.add('flash-slow');
+    } else {
+        arcadeCabinet.classList.remove('flash-slow');
+    }
+    
+    let tRate = (slowMoTimer > 0) ? 0.6 : targetPlaybackRate;
+    let tFall = (slowMoTimer > 0) ? targetFallSpeed * 0.4 : targetFallSpeed;
+    currentPlaybackRate += (tRate - currentPlaybackRate) * dt * 2.0;
+    currentFallSpeed += (tFall - currentFallSpeed) * dt * 2.0;
+    bgMusic.playbackRate = Math.max(0.1, currentPlaybackRate);
 
+    // Camera Shake
     if (arcadeShakeIntensity > 0.5) {
         arcadeCabinet.style.transform = `translate3d(${(Math.random() - 0.5) * arcadeShakeIntensity}px, ${94 + (Math.random() - 0.5) * arcadeShakeIntensity}px, 1380px)`;
         arcadeShakeIntensity *= 0.85; 
-    } else { arcadeCabinet.style.transform = `translate3d(0px, 94px, 1380px)`; }
+    } else { 
+        arcadeCabinet.style.transform = `translate3d(0px, 94px, 1380px)`; 
+    }
 
     if (isHost && bgMusic.currentTime >= nextSpawnTime && bgMusic.currentTime > 0) {
         spawnLetterLogic();
@@ -601,12 +595,15 @@ function update(time) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (gameMode === '1v1') { ctx.strokeStyle = '#333'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(400, 0); ctx.lineTo(400, 600); ctx.stroke(); }
 
+    // Render Particles
     for (let i = particles.length - 1; i >= 0; i--) {
         let p = particles[i]; p.vy += 1800 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt * 2.5; 
-        if (p.life <= 0) particles.splice(i, 1); else { ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, p.size, p.size); }
+        if (p.life <= 0) particles.splice(i, 1); 
+        else { ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, p.size, p.size); }
     }
     ctx.globalAlpha = 1.0;
 
+    // Render Floating Text
     for (let i = floatingTexts.length - 1; i >= 0; i--) {
         let ft = floatingTexts[i]; ft.y -= dt * 60; ft.life -= dt * 1.5;
         if (ft.life <= 0) floatingTexts.splice(i, 1);
@@ -614,10 +611,12 @@ function update(time) {
     }
     ctx.globalAlpha = 1.0;
 
+    // Render Letters
     ctx.font = '24px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    
     for (let i = activeLetters.length - 1; i >= 0; i--) {
-        let l = activeLetters[i]; l.y += currentFallSpeed * dt;
+        let l = activeLetters[i]; 
+        l.y += currentFallSpeed * dt;
+        
         ctx.fillStyle = l.color; ctx.shadowBlur = l.type !== 'normal' ? 15 : 0; ctx.shadowColor = l.color;
         let text = l.char;
         if (l.type === 'nuke') text = `[ ${l.char} ]`; else if (l.type === '1up') text = `+ ${l.char} +`; else if (l.type === 'slow') text = `~ ${l.char} ~`;
@@ -634,6 +633,141 @@ function update(time) {
     requestAnimationFrame(update);
 }
 
+function updateUI() {
+    scoreEl.innerText = score; comboEl.innerText = comboCount; multiplierEl.innerText = 'x' + comboMultiplier;
+    roundUiEl.innerText = 'ROUND ' + currentRound;
+    
+    let hearts = ""; for(let i=0; i<lives; i++) hearts += "♥"; livesEl.innerText = hearts;
+    if (lives === 1) gameContainer.classList.add('danger-state'); else gameContainer.classList.remove('danger-state');
+    
+    const colorIndex = Math.min(comboMultiplier - 1, comboColors.length - 1);
+    comboContainer.style.color = comboColors[colorIndex];
+    
+    if (gameMode === '1v1') {
+        const myScore = isHost ? score : opponentScore;
+        const opScore = isHost ? opponentScore : score;
+        const diff = myScore - opScore;
+        
+        let percentage = (diff / (MAX_SCORE_DIFF * 2)) * 100 + 50;
+        percentage = Math.max(0, Math.min(100, percentage));
+        tugP1.style.width = percentage + "%";
+
+        if (diff >= MAX_SCORE_DIFF) triggerWin();
+        else if (diff <= -MAX_SCORE_DIFF) loseLife(true); 
+    }
+}
+
+function updateOpponentScore(opScore) { opponentScore = opScore; updateUI(); }
+
+function triggerPowerUp(letter) {
+    if (letter.type === '1up') {
+        lives = Math.min(lives + 1, MAX_LIVES); play1UPSound();
+        arcadeCabinet.classList.add('flash-1up');
+        setTimeout(() => arcadeCabinet.classList.remove('flash-1up'), 400);
+        floatingTexts.push({ text: "1-UP!", x: letter.x, y: letter.y, life: 1.5, size: 20, color: '#0f0' });
+    } 
+    else if (letter.type === 'nuke') {
+        arcadeShakeIntensity = 80; playNukeSound();
+        arcadeCabinet.classList.add('flash-nuke');
+        setTimeout(() => arcadeCabinet.classList.remove('flash-nuke'), 500);
+        let pointsGained = 0; let explosionsCount = 0;
+        for (let i = activeLetters.length - 1; i >= 0; i--) {
+            let l = activeLetters[i]; 
+            if (explosionsCount < 8) { createExplosion(l.x, l.y, l.color, 1.5); explosionsCount++; }
+            pointsGained += (10 * comboMultiplier);
+        }
+        score += pointsGained;
+        floatingTexts.push({ text: "NUKE DETONATED!", x: canvas.width/2, y: canvas.height/2, life: 2.0, size: 30, color: '#ff4400' });
+        if (pointsGained > 0) floatingTexts.push({ text: `+${pointsGained}`, x: canvas.width/2, y: canvas.height/2 + 40, life: 2.0, size: 20, color: '#fff' });
+        activeLetters = []; 
+        targetFallSpeed = 200 + ((currentRound - 1) * 30); 
+        nextSpawnTime = bgMusic.currentTime + 2.0; 
+    }
+    else if (letter.type === 'slow') {
+        slowMoTimer = 6.0; playSlowMoSound();
+        floatingTexts.push({ text: "TIME WARP", x: letter.x, y: letter.y, life: 1.5, size: 20, color: '#0ff' });
+    }
+}
+
+function createExplosion(x, y, color, scale = 1.0) {
+    const particleCount = 45 * scale;
+    for(let i = 0; i < particleCount; i++) {
+        particles.push({
+            x: x + (Math.random() - 0.5) * 40, y: y + (Math.random() - 0.5) * 40,
+            vx: (Math.random() - 0.5) * (1200 * scale), vy: (Math.random() - 0.5) * (1200 * scale),
+            life: 1.0 + Math.random() * 0.5, size: Math.random() * (10 * scale) + 2, color: color
+        });
+    }
+}
+
+function triggerWin() {
+    isPlaying = false; uiState = 'GAMEOVER';
+    document.getElementById('game-over-title').innerText = "VICTORY";
+    document.getElementById('game-over-title').style.color = '#0ff';
+    gameOverScreen.classList.remove('hidden');
+    bgMusic.pause();
+}
+
+function loseLife(instantDeath = false) {
+    lives = instantDeath ? 0 : lives - 1; comboCount = 0; comboMultiplier = 1;
+    arcadeShakeIntensity = 60; playDamageSound();
+    
+    gameContainer.classList.add('damage-flicker');
+    setTimeout(() => gameContainer.classList.remove('damage-flicker'), 400);
+    updateUI();
+    
+    if (lives <= 0) {
+        isPlaying = false; uiState = 'GAMEOVER';
+        document.getElementById('game-over-title').innerText = "WASTED";
+        document.getElementById('game-over-title').style.color = '#fff';
+        gameOverScreen.classList.remove('hidden');
+        bgMusic.pause();
+    } else {
+        slowMoTimer = 2.0; playSlowMoSound();
+    }
+}
+
+function togglePause() {
+    if (!isPlaying) return;
+    isPaused = !isPaused;
+    if (isPaused) {
+        uiState = 'PAUSED'; bgMusic.pause(); pauseSelect = 0; updatePauseUI(); pauseScreen.classList.remove('hidden');
+    } else {
+        uiState = 'PLAYING'; pauseScreen.classList.add('hidden'); requestAnimationFrame((t) => { lastTime = t; bgMusic.play(); requestAnimationFrame(update); });
+    }
+}
+
+function quitGame() {
+    isPaused = false; isPlaying = false; uiState = 'LOBBY_MODE';
+    arcadeRoom.classList.remove('game-running');
+    pauseScreen.classList.add('hidden');
+    startScreen.classList.add('hidden');
+    lobbyScreen.classList.remove('hidden');
+    document.getElementById('multiplayer-controls').classList.remove('hidden');
+    document.getElementById('room-waiting').classList.add('hidden');
+    document.getElementById('start-btn').classList.remove('hidden');
+    document.getElementById('loading-indicator').classList.add('hidden');
+    
+    if (peerConnection) { peerConnection.close(); peerConnection = null; }
+    if (dataChannel) { dataChannel.close(); dataChannel = null; }
+    
+    gameContainer.classList.remove('danger-state');
+    arcadeCabinet.style.transform = ''; 
+    arcadeCabinet.classList.remove('slow-mo-active');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    updateLobbyUI();
+    startMenuMusic(true);
+}
+
+document.getElementById('restart-btn').addEventListener('click', () => {
+    gameOverScreen.classList.add('hidden');
+    quitGame();
+});
+
+// ==========================================
+// 8. BACKGROUND RENDERING & AUDIO SYNTHS
+// ==========================================
 function updateSongDisplays() {
     if(playlist.length === 0) return;
     const len = playlist.length;
@@ -642,7 +776,6 @@ function updateSongDisplays() {
     document.getElementById('center-song-title').innerText = `◀ ${playlist[currentSongIndex].title} ▶`;
 }
 
-// Draw Background & Sync Logic
 function drawBackground() {
     requestAnimationFrame(drawBackground);
     if (!analyser) return;
@@ -662,13 +795,6 @@ function drawBackground() {
     const cabGlow = `0 40px 100px rgba(0,0,0,1), 0 0 ${50 + reaction * 250}px hsla(${hue}, 100%, 60%, ${reaction * 0.8})`;
     leftCab.style.boxShadow = cabGlow; rightCab.style.boxShadow = cabGlow;
 
-    const parts = arcadeCabinet.querySelectorAll('.chameleon-part');
-    if (slowMoTimer > 0) {
-        parts.forEach(p => { p.style.animation = 'none'; p.style.filter = `hue-rotate(${hue}deg) brightness(${0.5 + reaction * 2.0}) saturate(${1 + reaction}) drop-shadow(0 0 ${20 + reaction * 80}px hsla(${hue}, 100%, 50%, ${0.5 + reaction * 0.5}))`; });
-    } else {
-        parts.forEach(p => { if (p.style.animation === 'none') { p.style.animation = ''; p.style.filter = ''; } });
-    }
-
     for (let p of bgParticles) {
         const dx = p.x - cx; const dy = p.y - cy; const dist = Math.sqrt(dx*dx + dy*dy) || 1;
         const outSpeed = 0.02 + reaction * 4; 
@@ -681,7 +807,6 @@ function drawBackground() {
     }
 }
 
-// Audio Synthesizers
 function playMenuSelectSound() { if (audioCtx) playTone(600, 'square', audioCtx.currentTime, 0.05, 0.2); }
 function playCoinSound() { if (audioCtx) { playTone(987.77, 'square', audioCtx.currentTime, 0.08, 0.3); playTone(1318.51, 'square', audioCtx.currentTime + 0.08, 0.4, 0.3); } }
 function playTone(f, type, t, dur, vol, dFreq = null) {
@@ -716,18 +841,3 @@ function playNukeSound() {
 }
 function playSlowMoSound() { if (audioCtx) playTone(800, 'sine', audioCtx.currentTime, 1.0, 0.5, 100); }
 function playDamageSound() { if (audioCtx) { playTone(400, 'square', audioCtx.currentTime, 0.1, 0.3, 300); playTone(300, 'square', audioCtx.currentTime + 0.1, 0.1, 0.3, 200); playTone(200, 'square', audioCtx.currentTime + 0.2, 0.2, 0.3, 100); } }
-
-function updatePauseMenuUI() {
-    if (pauseSelectedIndex === 0) { resumeBtn.classList.add('selected-btn'); quitBtn.classList.remove('selected-btn'); } 
-    else { resumeBtn.classList.remove('selected-btn'); quitBtn.classList.add('selected-btn'); }
-}
-
-function togglePause() {
-    if (!isPlaying) return;
-    isPaused = !isPaused;
-    if (isPaused) {
-        bgMusic.pause(); pauseSelectedIndex = 0; updatePauseMenuUI(); pauseScreen.classList.remove('hidden');
-    } else {
-        pauseScreen.classList.add('hidden'); requestAnimationFrame((t) => { lastTime = t; bgMusic.play(); requestAnimationFrame(update); });
-    }
-}
