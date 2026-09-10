@@ -39,7 +39,7 @@ body {
 #arcade-room.zoomed-in-view { transform: translateZ(1600px) translateY(100px); }
 #arcade-room.game-running .center-cabinet { transform: translateZ(1380px) translateY(94px); }
 
-/* Cabinets are pulled in tight, almost touching the center frame */
+/* Left and right cabinets pushed in extremely tight for a seamless, wrap-around perspective */
 .arcade-cabinet {
     position: absolute; top: 0; left: 0; width: 900px; height: 1250px;
     display: flex; flex-direction: column; align-items: center; transform-origin: center;
@@ -48,8 +48,8 @@ body {
 }
 
 .center-cabinet { z-index: 10; transform: translateZ(50px); }
-.left-cabinet { z-index: 1; transform: translateX(-910px) translateZ(-250px) rotateY(-25deg); }
-.right-cabinet { z-index: 1; transform: translateX(910px) translateZ(-250px) rotateY(25deg); }
+.left-cabinet { z-index: 1; transform: translateX(-780px) translateZ(-250px) rotateY(-25deg); }
+.right-cabinet { z-index: 1; transform: translateX(780px) translateZ(-250px) rotateY(25deg); }
 
 #arcade-room.game-running .left-cabinet { opacity: 0; transform: translateX(-1800px) translateZ(-800px) rotateY(-40deg); pointer-events: none; }
 #arcade-room.game-running .right-cabinet { opacity: 0; transform: translateX(1800px) translateZ(-800px) rotateY(40deg); pointer-events: none; }
@@ -64,10 +64,10 @@ body {
 .chameleon-part { transition: filter 0.1s, transform 0.05s; }
 
 /* Powerup Glow Overrides */
-.center-cabinet.flash-nuke .chameleon-part { filter: hue-rotate(0deg) brightness(2.5) saturate(3) drop-shadow(0 0 80px #ff4400) !important; }
-.center-cabinet.flash-1up .chameleon-part { filter: hue-rotate(90deg) brightness(2) saturate(2) drop-shadow(0 0 80px #0f0) !important; }
-.center-cabinet.flash-slow .chameleon-part { filter: hue-rotate(180deg) brightness(2.5) saturate(2) drop-shadow(0 0 80px #0ff) !important; }
-.center-cabinet.flash-combo .chameleon-part { filter: brightness(2.5) saturate(1.5) drop-shadow(0 0 60px #fff) !important; }
+.center-cabinet.flash-nuke .chameleon-part { filter: hue-rotate(0deg) brightness(2.5) saturate(3) drop-shadow(0 0 120px #ff4400) !important; }
+.center-cabinet.flash-1up .chameleon-part { filter: hue-rotate(90deg) brightness(2) saturate(2) drop-shadow(0 0 120px #0f0) !important; }
+.center-cabinet.flash-slow .chameleon-part { filter: hue-rotate(180deg) brightness(2.5) saturate(2) drop-shadow(0 0 120px #0ff) !important; }
+.center-cabinet.flash-combo .chameleon-part { filter: brightness(2.5) saturate(1.5) drop-shadow(0 0 100px #fff) !important; }
 
 @keyframes damageFlicker {
     0%, 50%, 100% { background-color: #000; box-shadow: 0 0 20px #fff; }
