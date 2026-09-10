@@ -1,15 +1,14 @@
 // ==========================================
 // 1. FIREBASE & WEBRTC SETUP
 // ==========================================
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// ⚠️ PASTE YOUR KEYS HERE
 const firebaseConfig = {
-  apiKey: "AIzaSyDHmyoBemXQFOxXsVmwFc5l4LHWKhZHtlI",
-  authDomain: "teamrhythmik.firebaseapp.com",
-  projectId: "teamrhythmik",
-  storageBucket: "teamrhythmik.firebasestorage.app",
-  messagingSenderId: "861227698308",
-  appId: "1:861227698308:web:a9f8802b0565aa7b7f9ad1",
-  measurementId: "G-TGPGDJDJMD"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -47,6 +46,7 @@ const gameContainer = document.getElementById('game-container');
 const arcadeRoom = document.getElementById('arcade-room');
 const arcadeCabinet = document.getElementById('arcade-cabinet'); 
 
+const introScreen = document.getElementById('intro-screen');
 const authScreen = document.getElementById('auth-screen');
 const lobbyScreen = document.getElementById('lobby-screen');
 const startScreen = document.getElementById('start-screen');
@@ -63,13 +63,17 @@ const trackEl = document.getElementById('current-track');
 const finalScoreEl = document.getElementById('final-score');
 const tugBar = document.getElementById('tug-of-war-bar');
 const tugP1 = document.getElementById('tug-p1');
+const resumeBtn = document.getElementById('resume-btn');
+const quitBtn = document.getElementById('quit-btn');
 
-// UI State Machine variables for Keyboard-only navigation
-let uiState = 'AUTH'; 
-let authSelect = 0; // 0: Login, 1: Register
-let lobbyModeSelect = 0; // 0: Solo, 1: Duo, 2: 1v1
-let lobbyJoinSelect = 0; // 0: Create, 1: Join Input
-let pauseSelect = 0; // 0: Resume, 1: Quit
+// UI State Machine
+let uiState = 'SPLASH'; 
+let authSelect = 0; 
+let lobbyModeSelect = 0; 
+let lobbyJoinSelect = 0; 
+let pauseSelect = 0; 
+let machinePower = 0; // Visual Power level (0 to 1)
+let targetMachinePower = 0;
 
 const playlist = [
     { title: "Master of Puppets", src: "audio/mop.mp3", bpm: 212 },
@@ -149,7 +153,7 @@ function unlockAudio() {
     const source = audioCtx.createBufferSource();
     source.buffer = buffer; source.connect(audioCtx.destination); source.start(0);
     audioUnlocked = true;
-    if (currentUser && !isPlaying && bgMusic.paused) startMenuMusic(true);
+    if (currentUser && uiState !== 'SPLASH' && uiState !== 'AUTH' && !isPlaying && bgMusic.paused) startMenuMusic(true);
 }
 window.addEventListener('click', unlockAudio, { once: true });
 window.addEventListener('keydown', unlockAudio, { once: true });
@@ -210,20 +214,27 @@ auth.onAuthStateChanged(async (user) => {
         const doc = await db.collection('users').doc(user.uid).get();
         currentUsername = doc.exists ? doc.data().username : "PLAYER";
         document.getElementById('lobby-username').innerText = currentUsername;
-        authScreen.classList.add('hidden');
-        lobbyScreen.classList.remove('hidden');
-        arcadeRoom.classList.remove('zoomed-in-view'); 
-        uiState = 'LOBBY_MODE';
-        updateLobbyUI();
-        updateSongDisplays();
-        startMenuMusic(true);
+
+        // Skip auth screen completely if returning user passes Splash
+        if (uiState !== 'SPLASH') {
+            authScreen.classList.add('hidden');
+            lobbyScreen.classList.remove('hidden');
+            arcadeRoom.classList.remove('zoomed-in-view'); 
+            uiState = 'LOBBY_MODE';
+            targetMachinePower = 1.0;
+            updateLobbyUI();
+            updateSongDisplays();
+            startMenuMusic(true);
+        }
     } else {
         currentUser = null;
-        authScreen.classList.remove('hidden');
-        lobbyScreen.classList.add('hidden');
-        arcadeRoom.classList.add('zoomed-in-view');
-        uiState = 'AUTH';
-        updateAuthUI();
+        if (uiState !== 'SPLASH') {
+            authScreen.classList.remove('hidden');
+            lobbyScreen.classList.add('hidden');
+            uiState = 'AUTH';
+            targetMachinePower = 0.0;
+            updateAuthUI();
+        }
     }
 });
 
@@ -259,7 +270,21 @@ function updatePauseUI() {
 }
 
 window.addEventListener('keydown', (e) => {
-    // 1. In-Game State
+
+    // Safely allow users to type in input fields without triggering game menus
+    if (document.activeElement.tagName === 'INPUT') {
+        if (e.key === 'Enter') {
+            playMenuSelectSound();
+            if (uiState === 'AUTH') {
+                if(authSelect === 0) document.getElementById('btn-login').click();
+                else document.getElementById('btn-register').click();
+            } else if (uiState === 'LOBBY_JOIN') {
+                document.getElementById('btn-join-room').click();
+            }
+        }
+        return; 
+    }
+
     if (uiState === 'PLAYING') {
         if (e.key === 'Escape') { togglePause(); return; }
         
@@ -292,8 +317,29 @@ window.addEventListener('keydown', (e) => {
         return;
     }
 
-    // 2. Menu Navigation States
     switch(uiState) {
+        case 'SPLASH':
+            if (e.key === 'Enter') {
+                unlockAudio();
+                document.getElementById('intro-screen').classList.add('hidden');
+                arcadeRoom.classList.remove('zoomed-in-view'); // Zooms out to powered-down machines
+                
+                if (currentUser) {
+                    uiState = 'LOBBY_MODE';
+                    lobbyScreen.classList.remove('hidden');
+                    updateLobbyUI();
+                    updateSongDisplays();
+                    targetMachinePower = 1.0;
+                    startMenuMusic(true);
+                } else {
+                    uiState = 'AUTH';
+                    authScreen.classList.remove('hidden');
+                    targetMachinePower = 0.0;
+                    updateAuthUI();
+                }
+            }
+            break;
+
         case 'AUTH':
             if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
                 authSelect = authSelect === 0 ? 1 : 0;
@@ -489,6 +535,7 @@ function startGameSequence() {
     bgMusic.src = currentSong.src;
     bgMusic.loop = false;
     if (masterGain) masterGain.gain.value = 0; 
+    
     bgMusic.load();
 
     const onAudioReady = () => {
@@ -520,7 +567,7 @@ function startGameSequence() {
 
     bgMusic.addEventListener('canplaythrough', onAudioReady);
     if (bgMusic.readyState >= 3) onAudioReady();
-    setTimeout(() => { if (uiState === 'LOADING') onAudioReady(); }, 5000); // Safety fallback
+    setTimeout(() => { if (uiState === 'LOADING') onAudioReady(); }, 5000); 
 }
 
 function spawnLetterLogic() {
@@ -559,15 +606,12 @@ function spawnLetterLogic() {
 
 function update(time) {
     if (!isPlaying || isPaused) return;
-    // Cap DT to prevent massive particle explosions if browser lags
     const dt = Math.min((time - lastTime) / 1000, 0.1); 
     lastTime = time;
 
-    // Progression
     if (score >= 2000 && currentRound === 1) { currentRound = 2; targetPlaybackRate = 1.05; targetFallSpeed = 230; updateUI(); }
     else if (score >= 4000 && currentRound === 2) { currentRound = 3; targetPlaybackRate = 1.10; targetFallSpeed = 260; updateUI(); }
 
-    // Smooth Slow-mo Lerp
     if (slowMoTimer > 0) {
         slowMoTimer -= dt;
         arcadeCabinet.classList.add('flash-slow');
@@ -581,13 +625,10 @@ function update(time) {
     currentFallSpeed += (tFall - currentFallSpeed) * dt * 2.0;
     bgMusic.playbackRate = Math.max(0.1, currentPlaybackRate);
 
-    // Camera Shake
     if (arcadeShakeIntensity > 0.5) {
         arcadeCabinet.style.transform = `translate3d(${(Math.random() - 0.5) * arcadeShakeIntensity}px, ${94 + (Math.random() - 0.5) * arcadeShakeIntensity}px, 1380px)`;
         arcadeShakeIntensity *= 0.85; 
-    } else { 
-        arcadeCabinet.style.transform = `translate3d(0px, 94px, 1380px)`; 
-    }
+    } else { arcadeCabinet.style.transform = `translate3d(0px, 94px, 1380px)`; }
 
     if (isHost && bgMusic.currentTime >= nextSpawnTime && bgMusic.currentTime > 0) {
         spawnLetterLogic();
@@ -597,7 +638,6 @@ function update(time) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (gameMode === '1v1') { ctx.strokeStyle = '#333'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(400, 0); ctx.lineTo(400, 600); ctx.stroke(); }
 
-    // Render Particles
     for (let i = particles.length - 1; i >= 0; i--) {
         let p = particles[i]; p.vy += 1800 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt * 2.5; 
         if (p.life <= 0) particles.splice(i, 1); 
@@ -605,7 +645,6 @@ function update(time) {
     }
     ctx.globalAlpha = 1.0;
 
-    // Render Floating Text
     for (let i = floatingTexts.length - 1; i >= 0; i--) {
         let ft = floatingTexts[i]; ft.y -= dt * 60; ft.life -= dt * 1.5;
         if (ft.life <= 0) floatingTexts.splice(i, 1);
@@ -613,7 +652,6 @@ function update(time) {
     }
     ctx.globalAlpha = 1.0;
 
-    // Render Letters
     ctx.font = '24px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (let i = activeLetters.length - 1; i >= 0; i--) {
         let l = activeLetters[i]; 
@@ -781,31 +819,57 @@ function updateSongDisplays() {
 function drawBackground() {
     requestAnimationFrame(drawBackground);
     if (!analyser) return;
+    
+    machinePower += (targetMachinePower - machinePower) * 0.05;
+
     analyser.getByteFrequencyData(dataArray);
     let bassSum = 0; let bassCount = Math.floor(dataArray.length / 4); 
     for(let i = 0; i < bassCount; i++) bassSum += dataArray[i];
     const reaction = (bassCount > 0 ? (bassSum / bassCount) : 0) / 255;
     bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
     const cx = bgCanvas.width / 2; const cy = bgCanvas.height / 2; const hue = ((bassSum / bassCount) * 1.5) % 360;
+    
+    // Core Aura
     const grad = bgCtx.createRadialGradient(cx, cy, 0, cx, cy, reaction * (cx*1.2) + 150);
-    grad.addColorStop(0, `hsla(${hue}, 90%, 50%, ${0.1 + reaction * 0.2})`); grad.addColorStop(1, `transparent`);
+    grad.addColorStop(0, `hsla(${hue}, 90%, 50%, ${(0.1 + reaction * 0.2) * machinePower})`); 
+    grad.addColorStop(1, `transparent`);
     bgCtx.fillStyle = grad; bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
     
-    let dynBright = 0.65 + reaction * 0.5; 
+    // Render either the Disco Menu Visualizer or standard Gameplay Particles
+    if (uiState === 'LOBBY_MODE' || uiState === 'LOBBY_JOIN' || uiState === 'START') {
+        const barWidth = Math.ceil(bgCanvas.width / dataArray.length);
+        for(let i = 0; i < dataArray.length; i++) {
+            const barHeight = dataArray[i] * 2.5 * machinePower;
+            bgCtx.fillStyle = `hsla(${(hue + i*4) % 360}, 100%, 50%, ${0.5 * machinePower})`;
+            bgCtx.fillRect(i * barWidth, bgCanvas.height - barHeight, barWidth, barHeight);
+        }
+    } else if (uiState === 'PLAYING') {
+        for (let p of bgParticles) {
+            const dx = p.x - cx; const dy = p.y - cy; const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+            const outSpeed = 0.02 + reaction * 4; 
+            p.x += (dx / dist) * outSpeed; p.y += (dy / dist) * outSpeed;
+            const jitter = 0.2 + reaction * 1.5;
+            p.x += (Math.random() - 0.5) * jitter; p.y += (Math.random() - 0.5) * jitter;
+            if (p.x < 0 || p.x > bgCanvas.width || p.y < 0 || p.y > bgCanvas.height) { p.x = cx + (Math.random() - 0.5) * 200; p.y = cy + (Math.random() - 0.5) * 200; }
+            bgCtx.fillStyle = `hsla(${(hue + p.hueOffset) % 360}, 90%, ${50 + reaction * 40}%, ${0.3 + reaction * 0.7 * machinePower})`;
+            bgCtx.beginPath(); bgCtx.arc(p.x, p.y, p.baseSize * (1 + reaction * 1.5), 0, Math.PI * 2); bgCtx.fill();
+        }
+    }
+
+    // Apply Lerped machinePower to the physical arcade machines
+    let dynBright = 0.2 + (0.45 + reaction * 0.5) * machinePower; 
     leftCab.style.filter = `hue-rotate(${hue}deg) brightness(${dynBright}) contrast(1.2)`;
     rightCab.style.filter = `hue-rotate(${hue}deg) brightness(${dynBright}) contrast(1.2)`;
-    const cabGlow = `0 40px 100px rgba(0,0,0,1), 0 0 ${50 + reaction * 250}px hsla(${hue}, 100%, 60%, ${reaction * 0.8})`;
+    const cabGlow = `0 40px 100px rgba(0,0,0,1), 0 0 ${50 + reaction * 250}px hsla(${hue}, 100%, 60%, ${reaction * 0.8 * machinePower})`;
     leftCab.style.boxShadow = cabGlow; rightCab.style.boxShadow = cabGlow;
 
-    for (let p of bgParticles) {
-        const dx = p.x - cx; const dy = p.y - cy; const dist = Math.sqrt(dx*dx + dy*dy) || 1;
-        const outSpeed = 0.02 + reaction * 4; 
-        p.x += (dx / dist) * outSpeed; p.y += (dy / dist) * outSpeed;
-        const jitter = 0.2 + reaction * 1.5;
-        p.x += (Math.random() - 0.5) * jitter; p.y += (Math.random() - 0.5) * jitter;
-        if (p.x < 0 || p.x > bgCanvas.width || p.y < 0 || p.y > bgCanvas.height) { p.x = cx + (Math.random() - 0.5) * 200; p.y = cy + (Math.random() - 0.5) * 200; }
-        bgCtx.fillStyle = `hsla(${(hue + p.hueOffset) % 360}, 90%, ${50 + reaction * 40}%, ${0.3 + reaction * 0.7})`;
-        bgCtx.beginPath(); bgCtx.arc(p.x, p.y, p.baseSize * (1 + reaction * 1.5), 0, Math.PI * 2); bgCtx.fill();
+    const parts = arcadeCabinet.querySelectorAll('.chameleon-part');
+    if (machinePower < 0.95) {
+        parts.forEach(p => { p.style.animation = 'none'; p.style.filter = `brightness(${0.2 + 0.8 * machinePower})`; });
+    } else if (slowMoTimer > 0) {
+        // Handled by CSS class flash-slow, so do nothing here
+    } else {
+        parts.forEach(p => { if (p.style.animation === 'none' && !p.classList.contains('flash-nuke') && !p.classList.contains('flash-1up')) { p.style.animation = ''; p.style.filter = ''; } });
     }
 }
 
