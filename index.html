@@ -61,8 +61,14 @@
 
                                 <canvas id="gameCanvas" width="800" height="600"></canvas>
 
+                                <!-- INTRO SCREEN -->
+                                <div id="intro-screen" class="overlay">
+                                    <h1>RHYTHMIK</h1>
+                                    <p class="blink" style="margin-top: 60px; font-size: 18px; color: #0ff;">PRESS ENTER</p>
+                                </div>
+
                                 <!-- AUTH SCREEN -->
-                                <div id="auth-screen" class="overlay">
+                                <div id="auth-screen" class="overlay hidden">
                                     <h1>RHYTHMIK</h1>
                                     <h2 style="color: #ff0055; font-size:12px; margin-bottom:20px;">AUTHENTICATION REQUIRED</h2>
                                     <input type="text" id="auth-username" placeholder="USERNAME" class="retro-input" maxlength="12">
