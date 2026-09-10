@@ -39,10 +39,7 @@ body {
 #arcade-room.zoomed-in-view { transform: translateZ(1600px) translateY(100px); }
 #arcade-room.game-running .center-cabinet { transform: translateZ(1380px) translateY(94px); }
 
-/* Pushed side cabinets further out to prevent screen overlap */
-#arcade-room.game-running .left-cabinet { opacity: 0; transform: translateX(-1800px) translateZ(-800px) rotateY(-40deg); pointer-events: none; }
-#arcade-room.game-running .right-cabinet { opacity: 0; transform: translateX(1800px) translateZ(-800px) rotateY(40deg); pointer-events: none; }
-
+/* Left/Right Cabinets positioned perfectly to frame the center screen */
 .arcade-cabinet {
     position: absolute; top: 0; left: 0; width: 900px; height: 1250px;
     display: flex; flex-direction: column; align-items: center; transform-origin: center;
@@ -51,8 +48,11 @@ body {
 }
 
 .center-cabinet { z-index: 10; transform: translateZ(50px); }
-.left-cabinet { z-index: 1; transform: translateX(-1350px) translateZ(-500px) rotateY(-32deg); filter: brightness(0.60) contrast(1.2); }
-.right-cabinet { z-index: 1; transform: translateX(1350px) translateZ(-500px) rotateY(32deg); filter: brightness(0.60) contrast(1.2); }
+.left-cabinet { z-index: 1; transform: translateX(-1050px) translateZ(-200px) rotateY(-18deg); filter: brightness(0.65) contrast(1.2); }
+.right-cabinet { z-index: 1; transform: translateX(1050px) translateZ(-200px) rotateY(18deg); filter: brightness(0.65) contrast(1.2); }
+
+#arcade-room.game-running .left-cabinet { opacity: 0; transform: translateX(-1600px) translateZ(-800px) rotateY(-40deg); pointer-events: none; }
+#arcade-room.game-running .right-cabinet { opacity: 0; transform: translateX(1600px) translateZ(-800px) rotateY(40deg); pointer-events: none; }
 
 .left-cabinet .control-panel, .right-cabinet .control-panel {
     transform: rotateX(40deg) translateZ(80px) translateY(20px) scale(1.05) !important;
@@ -69,8 +69,11 @@ body {
 }
 
 .center-cabinet .chameleon-part { animation: chameleonBreath 10s infinite linear; transition: filter 0.1s, transform 0.05s; }
+
+/* Powerup Glow Overrides */
 .center-cabinet.flash-nuke .chameleon-part { animation: none !important; filter: hue-rotate(0deg) brightness(2.5) saturate(3) drop-shadow(0 0 80px #ff4400) !important; }
 .center-cabinet.flash-1up .chameleon-part { animation: none !important; filter: hue-rotate(90deg) brightness(2) saturate(2) drop-shadow(0 0 80px #0f0) !important; }
+.center-cabinet.flash-slow .chameleon-part { animation: none !important; filter: hue-rotate(180deg) brightness(2.5) saturate(2) drop-shadow(0 0 80px #0ff) !important; }
 .center-cabinet.flash-combo .chameleon-part { animation: none !important; filter: brightness(2.5) saturate(1.5) drop-shadow(0 0 60px #fff) !important; }
 
 @keyframes damageFlicker {
@@ -121,11 +124,11 @@ canvas { display: block; }
 .hidden { display: none !important; }
 .blink { animation: blink 1s infinite step-end; }
 
-button { margin-top: 15px; padding: 15px 20px; background-color: #fff; color: #000; border: 2px solid transparent; font-family: 'Press Start 2P', monospace; font-size: 14px; cursor: pointer; transition: all 0.1s; pointer-events: auto; }
+button { margin-top: 5px; padding: 15px 20px; background-color: #fff; color: #000; border: 2px solid transparent; font-family: 'Press Start 2P', monospace; font-size: 14px; cursor: pointer; transition: all 0.1s; pointer-events: auto; }
 button:hover, button.selected-btn { transform: scale(1.1); background-color: #ff0055; color: #fff; box-shadow: 0 0 15px #ff0055; border: 2px solid #0ff; }
 button:disabled { opacity: 0.5; cursor: not-allowed; background-color: #333; color: #888; box-shadow: none; border-color: transparent; transform: none; }
 
-.retro-input { font-family: 'Press Start 2P', monospace; background: #000; border: 2px solid #0ff; color: #fff; padding: 10px; text-align: center; outline: none; margin-bottom: 15px; width: 80%; display: block; }
+.retro-input { font-family: 'Press Start 2P', monospace; background: #000; border: 2px solid #0ff; color: #fff; padding: 10px; text-align: center; outline: none; margin-bottom: 15px; width: 80%; display: block; margin-left: auto; margin-right: auto;}
 .retro-input:focus { border-color: #ff0055; box-shadow: 0 0 10px #ff0055; }
 #song-selection-display { margin: 20px 0; padding: 15px; border: 2px dashed #ff0055; color: #0ff; background: rgba(255, 0, 85, 0.1); font-size: 16px; line-height: 1.5; }
 
