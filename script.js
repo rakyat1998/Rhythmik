@@ -1,16 +1,16 @@
 // ==========================================
 // 1. FIREBASE & WEBRTC SETUP
 // ==========================================
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// ⚠️ PASTE YOUR KEYS HERE
 const firebaseConfig = {
-  apiKey: "AIzaSyDHmyoBemXQFOxXsVmwFc5l4LHWKhZHtlI",
-  authDomain: "teamrhythmik.firebaseapp.com",
-  projectId: "teamrhythmik",
-  storageBucket: "teamrhythmik.firebasestorage.app",
-  messagingSenderId: "861227698308",
-  appId: "1:861227698308:web:a9f8802b0565aa7b7f9ad1",
-  measurementId: "G-TGPGDJDJMD"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
+
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
@@ -72,7 +72,7 @@ let authSelect = 0;
 let lobbyModeSelect = 0; 
 let lobbyJoinSelect = 0; 
 let pauseSelect = 0; 
-let machinePower = 0; // Visual Power level (0 to 1)
+let machinePower = 0; 
 let targetMachinePower = 0;
 
 const playlist = [
@@ -124,8 +124,13 @@ const bgCanvas = document.getElementById('bg-canvas');
 const bgCtx = bgCanvas.getContext('2d');
 const leftCab = document.querySelector('.left-cabinet');
 const rightCab = document.querySelector('.right-cabinet');
-const bgParticles = [];
-for(let i=0; i<300; i++) bgParticles.push({ x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight, baseSize: Math.random() * 1.5 + 0.5, hueOffset: Math.random() * 60 - 30 });
+
+function resizeBackground() {
+    bgCanvas.width = window.innerWidth;
+    bgCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeBackground);
+resizeBackground();
 
 // ==========================================
 // 3. AUDIO CORE & BROWSER UNLOCK
@@ -134,7 +139,7 @@ function initAudio() {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (!masterGain) {
         analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 128;
+        analyser.fftSize = 128; // Used for Visualizer
         masterGain = audioCtx.createGain(); 
         const audioSource = audioCtx.createMediaElementSource(bgMusic);
         audioSource.connect(analyser); 
@@ -215,11 +220,9 @@ auth.onAuthStateChanged(async (user) => {
         currentUsername = doc.exists ? doc.data().username : "PLAYER";
         document.getElementById('lobby-username').innerText = currentUsername;
 
-        // Skip auth screen completely if returning user passes Splash
         if (uiState !== 'SPLASH') {
             authScreen.classList.add('hidden');
             lobbyScreen.classList.remove('hidden');
-            arcadeRoom.classList.remove('zoomed-in-view'); 
             uiState = 'LOBBY_MODE';
             targetMachinePower = 1.0;
             updateLobbyUI();
@@ -270,8 +273,7 @@ function updatePauseUI() {
 }
 
 window.addEventListener('keydown', (e) => {
-
-    // Safely allow users to type in input fields without triggering game menus
+    // Isolate Input field interactions so arrows/enter don't trigger game logic
     if (document.activeElement.tagName === 'INPUT') {
         if (e.key === 'Enter') {
             playMenuSelectSound();
@@ -291,6 +293,7 @@ window.addEventListener('keydown', (e) => {
         const key = e.key.toUpperCase();
         const myId = isHost ? 1 : 2;
         let targetIndex = -1; let maxY = -100;
+        
         for (let i = 0; i < activeLetters.length; i++) {
             if ((gameMode === 'solo' || activeLetters[i].owner === myId) && activeLetters[i].char === key && activeLetters[i].y > maxY) {
                 maxY = activeLetters[i].y; targetIndex = i;
@@ -304,8 +307,8 @@ window.addEventListener('keydown', (e) => {
             
             arcadeShakeIntensity = Math.max(arcadeShakeIntensity, 15); 
             comboCount++; if (comboCount > 0 && comboCount % 6 === 0) comboMultiplier++;
-            createExplosion(letter.x, letter.y, letter.color);
             
+            createExplosion(letter.x, letter.y, letter.color);
             if (letter.type === 'normal') {
                 score += 10 * comboMultiplier;
                 floatingTexts.push({ text: "+" + (10 * comboMultiplier), x: letter.x, y: letter.y, life: 1.0, size: 16, color: '#fff' });
@@ -317,18 +320,18 @@ window.addEventListener('keydown', (e) => {
         return;
     }
 
+    // Menu Navigation
     switch(uiState) {
         case 'SPLASH':
             if (e.key === 'Enter') {
                 unlockAudio();
                 document.getElementById('intro-screen').classList.add('hidden');
-                arcadeRoom.classList.remove('zoomed-in-view'); // Zooms out to powered-down machines
+                arcadeRoom.classList.remove('zoomed-in-view'); 
                 
                 if (currentUser) {
                     uiState = 'LOBBY_MODE';
                     lobbyScreen.classList.remove('hidden');
-                    updateLobbyUI();
-                    updateSongDisplays();
+                    updateLobbyUI(); updateSongDisplays();
                     targetMachinePower = 1.0;
                     startMenuMusic(true);
                 } else {
@@ -615,14 +618,15 @@ function update(time) {
     if (slowMoTimer > 0) {
         slowMoTimer -= dt;
         arcadeCabinet.classList.add('flash-slow');
+        // Smoothly slow down to 50%
+        currentPlaybackRate += (0.5 - currentPlaybackRate) * dt * 3.0; 
+        currentFallSpeed += ((targetFallSpeed * 0.4) - currentFallSpeed) * dt * 3.0;
     } else {
         arcadeCabinet.classList.remove('flash-slow');
+        // Instantly return to normal speed
+        currentPlaybackRate = targetPlaybackRate;
+        currentFallSpeed = targetFallSpeed;
     }
-    
-    let tRate = (slowMoTimer > 0) ? 0.6 : targetPlaybackRate;
-    let tFall = (slowMoTimer > 0) ? targetFallSpeed * 0.4 : targetFallSpeed;
-    currentPlaybackRate += (tRate - currentPlaybackRate) * dt * 2.0;
-    currentFallSpeed += (tFall - currentFallSpeed) * dt * 2.0;
     bgMusic.playbackRate = Math.max(0.1, currentPlaybackRate);
 
     if (arcadeShakeIntensity > 0.5) {
@@ -638,13 +642,19 @@ function update(time) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (gameMode === '1v1') { ctx.strokeStyle = '#333'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(400, 0); ctx.lineTo(400, 600); ctx.stroke(); }
 
+    // Render Explosions
     for (let i = particles.length - 1; i >= 0; i--) {
-        let p = particles[i]; p.vy += 1800 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt * 2.5; 
+        let p = particles[i]; 
+        p.vy += 1000 * dt; 
+        p.x += p.vx * dt; 
+        p.y += p.vy * dt; 
+        p.life -= dt * 1.5; 
         if (p.life <= 0) particles.splice(i, 1); 
         else { ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, p.size, p.size); }
     }
     ctx.globalAlpha = 1.0;
 
+    // Render Floating Text
     for (let i = floatingTexts.length - 1; i >= 0; i--) {
         let ft = floatingTexts[i]; ft.y -= dt * 60; ft.life -= dt * 1.5;
         if (ft.life <= 0) floatingTexts.splice(i, 1);
@@ -652,6 +662,7 @@ function update(time) {
     }
     ctx.globalAlpha = 1.0;
 
+    // Render Letters
     ctx.font = '24px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (let i = activeLetters.length - 1; i >= 0; i--) {
         let l = activeLetters[i]; 
@@ -730,12 +741,12 @@ function triggerPowerUp(letter) {
 }
 
 function createExplosion(x, y, color, scale = 1.0) {
-    const particleCount = 45 * scale;
+    const particleCount = 35 * scale;
     for(let i = 0; i < particleCount; i++) {
         particles.push({
-            x: x + (Math.random() - 0.5) * 40, y: y + (Math.random() - 0.5) * 40,
-            vx: (Math.random() - 0.5) * (1200 * scale), vy: (Math.random() - 0.5) * (1200 * scale),
-            life: 1.0 + Math.random() * 0.5, size: Math.random() * (10 * scale) + 2, color: color
+            x: x + (Math.random() - 0.5) * 20, y: y + (Math.random() - 0.5) * 20,
+            vx: (Math.random() - 0.5) * (800 * scale), vy: (Math.random() - 0.5) * (800 * scale),
+            life: 1.0 + Math.random() * 0.3, size: Math.random() * (8 * scale) + 2, color: color
         });
     }
 }
@@ -826,6 +837,7 @@ function drawBackground() {
     let bassSum = 0; let bassCount = Math.floor(dataArray.length / 4); 
     for(let i = 0; i < bassCount; i++) bassSum += dataArray[i];
     const reaction = (bassCount > 0 ? (bassSum / bassCount) : 0) / 255;
+    
     bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
     const cx = bgCanvas.width / 2; const cy = bgCanvas.height / 2; const hue = ((bassSum / bassCount) * 1.5) % 360;
     
@@ -835,41 +847,37 @@ function drawBackground() {
     grad.addColorStop(1, `transparent`);
     bgCtx.fillStyle = grad; bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
     
-    // Render either the Disco Menu Visualizer or standard Gameplay Particles
+    // Render the Disco Visualizer only during Menu states
     if (uiState === 'LOBBY_MODE' || uiState === 'LOBBY_JOIN' || uiState === 'START') {
         const barWidth = Math.ceil(bgCanvas.width / dataArray.length);
         for(let i = 0; i < dataArray.length; i++) {
-            const barHeight = dataArray[i] * 2.5 * machinePower;
-            bgCtx.fillStyle = `hsla(${(hue + i*4) % 360}, 100%, 50%, ${0.5 * machinePower})`;
-            bgCtx.fillRect(i * barWidth, bgCanvas.height - barHeight, barWidth, barHeight);
-        }
-    } else if (uiState === 'PLAYING') {
-        for (let p of bgParticles) {
-            const dx = p.x - cx; const dy = p.y - cy; const dist = Math.sqrt(dx*dx + dy*dy) || 1;
-            const outSpeed = 0.02 + reaction * 4; 
-            p.x += (dx / dist) * outSpeed; p.y += (dy / dist) * outSpeed;
-            const jitter = 0.2 + reaction * 1.5;
-            p.x += (Math.random() - 0.5) * jitter; p.y += (Math.random() - 0.5) * jitter;
-            if (p.x < 0 || p.x > bgCanvas.width || p.y < 0 || p.y > bgCanvas.height) { p.x = cx + (Math.random() - 0.5) * 200; p.y = cy + (Math.random() - 0.5) * 200; }
-            bgCtx.fillStyle = `hsla(${(hue + p.hueOffset) % 360}, 90%, ${50 + reaction * 40}%, ${0.3 + reaction * 0.7 * machinePower})`;
-            bgCtx.beginPath(); bgCtx.arc(p.x, p.y, p.baseSize * (1 + reaction * 1.5), 0, Math.PI * 2); bgCtx.fill();
+            const heightPct = dataArray[i] / 255;
+            const barHeight = heightPct * bgCanvas.height * 0.8 * machinePower;
+            bgCtx.fillStyle = `hsla(${(hue + i*5) % 360}, 100%, 50%, ${0.5 * machinePower})`;
+            bgCtx.fillRect(i * barWidth, bgCanvas.height - barHeight, barWidth + 1, barHeight);
         }
     }
 
-    // Apply Lerped machinePower to the physical arcade machines
-    let dynBright = 0.2 + (0.45 + reaction * 0.5) * machinePower; 
-    leftCab.style.filter = `hue-rotate(${hue}deg) brightness(${dynBright}) contrast(1.2)`;
-    rightCab.style.filter = `hue-rotate(${hue}deg) brightness(${dynBright}) contrast(1.2)`;
+    // Apply Lerped machinePower to the physical arcade machines so they look unpowered initially
+    let dynBright = 0.1 + (0.55 + reaction * 0.5) * machinePower; 
+    let gray = 1 - machinePower;
+    let cabFilter = `grayscale(${gray}) hue-rotate(${hue}deg) brightness(${dynBright}) contrast(1.2)`;
+    
+    leftCab.style.filter = cabFilter;
+    rightCab.style.filter = cabFilter;
+    
     const cabGlow = `0 40px 100px rgba(0,0,0,1), 0 0 ${50 + reaction * 250}px hsla(${hue}, 100%, 60%, ${reaction * 0.8 * machinePower})`;
     leftCab.style.boxShadow = cabGlow; rightCab.style.boxShadow = cabGlow;
 
+    // Apply darkening specifically to the physical cabinet chassis, isolating the screen UI
     const parts = arcadeCabinet.querySelectorAll('.chameleon-part');
-    if (machinePower < 0.95) {
-        parts.forEach(p => { p.style.animation = 'none'; p.style.filter = `brightness(${0.2 + 0.8 * machinePower})`; });
-    } else if (slowMoTimer > 0) {
-        // Handled by CSS class flash-slow, so do nothing here
-    } else {
-        parts.forEach(p => { if (p.style.animation === 'none' && !p.classList.contains('flash-nuke') && !p.classList.contains('flash-1up')) { p.style.animation = ''; p.style.filter = ''; } });
+    if (slowMoTimer <= 0) {
+        parts.forEach(p => { 
+            if (!p.classList.contains('flash-nuke') && !p.classList.contains('flash-1up')) {
+                p.style.animation = 'none'; 
+                p.style.filter = cabFilter; 
+            }
+        });
     }
 }
 
