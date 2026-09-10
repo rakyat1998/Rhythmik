@@ -2,7 +2,6 @@
 // 1. FIREBASE & WEBRTC SETUP
 // ==========================================
 
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyDHmyoBemXQFOxXsVmwFc5l4LHWKhZHtlI",
   authDomain: "teamrhythmik.firebaseapp.com",
@@ -318,6 +317,9 @@ function setupDataChannel(dc) {
         if (!isHost) {
             document.getElementById('start-btn').innerText = "WAITING FOR HOST...";
             document.getElementById('start-btn').disabled = true;
+        } else {
+            document.getElementById('start-btn').innerText = "BEGIN GAME [ENTER]";
+            document.getElementById('start-btn').disabled = false;
         }
     };
     
@@ -364,7 +366,9 @@ window.addEventListener('keydown', (e) => {
             currentSongIndex = (currentSongIndex + 1) % playlist.length;
             updateSongDisplays(); startMenuMusic(); return;
         }
-        if (e.key === 'Enter') return document.getElementById('start-btn').click();
+        if (e.key === 'Enter' && !document.getElementById('start-btn').disabled) {
+            return document.getElementById('start-btn').click();
+        }
     }
 
     if (!isPlaying) return;
@@ -416,31 +420,46 @@ function startGameSequence() {
     currentSong = playlist[currentSongIndex];
     trackEl.innerText = currentSong.title;
 
-    // Instantly lock in the track securely, but play it muted to bypass browser block
+    // Loading UI Changes
+    document.getElementById('start-btn').classList.add('hidden');
+    document.getElementById('loading-indicator').classList.remove('hidden');
+
     bgMusic.pause();
     bgMusic.src = currentSong.src;
     bgMusic.loop = false;
     if (masterGain) masterGain.gain.value = 0; 
-    bgMusic.play().catch(e => console.log("Silent spin-up blocked:", e));
-
-    arcadeRoom.classList.add('game-running');
-    gameContainer.style.borderColor = '#fff';
-    if (gameMode === '1v1') tugBar.classList.remove('hidden');
-
-    activeLetters = []; particles = []; floatingTexts = [];
-    score = 0; opponentScore = 0; currentRound = 1; comboCount = 0; comboMultiplier = 1; lives = 3;
-    arcadeShakeIntensity = 0; slowMoTimer = 0; targetPlaybackRate = 1.0; bgMusic.playbackRate = 1.0;
-    targetFallSpeed = 200; currentFallSpeed = 200; beatInterval = 60 / currentSong.bpm; 
     
-    startScreen.classList.add('hidden'); 
+    bgMusic.load();
+
+    const onAudioReady = () => {
+        bgMusic.removeEventListener('canplaythrough', onAudioReady);
+
+        arcadeRoom.classList.add('game-running');
+        gameContainer.style.borderColor = '#fff';
+        if (gameMode === '1v1') tugBar.classList.remove('hidden');
+
+        activeLetters = []; particles = []; floatingTexts = [];
+        score = 0; opponentScore = 0; currentRound = 1; comboCount = 0; comboMultiplier = 1; lives = 3;
+        arcadeShakeIntensity = 0; slowMoTimer = 0; targetPlaybackRate = 1.0; bgMusic.playbackRate = 1.0;
+        targetFallSpeed = 200; currentFallSpeed = 200; beatInterval = 60 / currentSong.bpm; 
+        
+        startScreen.classList.add('hidden'); 
+        document.getElementById('loading-indicator').classList.add('hidden');
+        
+        setTimeout(() => {
+            bgMusic.currentTime = 0; 
+            if (masterGain) masterGain.gain.value = 1.0; 
+            nextSpawnTime = 0.1;
+            isPlaying = true; isPaused = false; 
+            bgMusic.play().catch(e => console.log("Audio play blocked", e));
+            updateUI(); lastTime = performance.now(); requestAnimationFrame(update);
+        }, 2200); 
+    };
+
+    bgMusic.addEventListener('canplaythrough', onAudioReady);
     
-    setTimeout(() => {
-        bgMusic.currentTime = 0; 
-        if (masterGain) masterGain.gain.value = 1.0; 
-        nextSpawnTime = 0.1;
-        isPlaying = true; isPaused = false; 
-        updateUI(); lastTime = performance.now(); requestAnimationFrame(update);
-    }, 2200); 
+    // Safety fallback just in case the event fails to fire
+    setTimeout(() => { if (!isPlaying && !startScreen.classList.contains('hidden')) onAudioReady(); }, 5000);
 }
 
 function updateUI() {
@@ -505,6 +524,9 @@ function quitGame() {
     lobbyScreen.classList.remove('hidden');
     document.getElementById('multiplayer-controls').classList.remove('hidden');
     document.getElementById('room-waiting').classList.add('hidden');
+    
+    document.getElementById('start-btn').classList.remove('hidden');
+    document.getElementById('loading-indicator').classList.add('hidden');
     
     if (peerConnection) { peerConnection.close(); peerConnection = null; }
     if (dataChannel) { dataChannel.close(); dataChannel = null; }
@@ -610,6 +632,14 @@ function update(time) {
         }
     }
     requestAnimationFrame(update);
+}
+
+function updateSongDisplays() {
+    if(playlist.length === 0) return;
+    const len = playlist.length;
+    document.getElementById('left-screen-title').innerText = playlist[(currentSongIndex - 1 + len) % len].title;
+    document.getElementById('right-screen-title').innerText = playlist[(currentSongIndex + 1) % len].title;
+    document.getElementById('center-song-title').innerText = `◀ ${playlist[currentSongIndex].title} ▶`;
 }
 
 // Draw Background & Sync Logic
