@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>8-Bit Type Rhythm: Arcade Room</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- AURA AND PARTICLES CANVAS (Background) -->
+    <canvas id="bg-canvas"></canvas>
+
+    <div id="arcade-scaler">
+        <div id="arcade-room" class="zoomed-in-view">
+            
+            <!-- LEFT CABINET -->
+            <div class="arcade-cabinet left-cabinet">
+                <div class="marquee"><h1>RHYTHMIK</h1></div>
+                <div class="screen-section">
+                    <div class="screen-housing"></div>
+                    <div class="monitor-glass">
+                        <div class="side-screen-content">
+                            <span class="sub">TRACK CYCLING</span>
+                            <div id="left-screen-title">--</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="control-panel-wrapper">
+                    <div class="control-panel">
+                        <div class="start-buttons"><div class="p1-start"></div></div>
+                        <div class="joystick-base"><div class="joystick-shaft"></div><div class="joystick-ball"></div></div>
+                        <div class="buttons-container"><div class="action-button btn-red"></div><div class="action-button btn-blue"></div><div class="action-button btn-green"></div></div>
+                    </div>
+                </div>
+                <div class="cabinet-base"><div class="coin-door-panel"><div class="coin-slot"><div class="coin-insert"></div><div class="coin-return"></div></div></div></div>
+            </div>
+
+            <!-- CENTER ACTIVE CABINET -->
+            <div class="arcade-cabinet center-cabinet" id="arcade-cabinet">
+                <div class="marquee chameleon-part">
+                    <h1>RHYTHMIK<br><span>OVERKILL</span></h1>
+                </div>
+
+                <div class="screen-section">
+                    <div class="screen-housing chameleon-part"></div>
+                    
+                    <div class="monitor-glass">
+                        <div id="scale-wrapper">
+                            <div id="game-container">
+                                
+                                <div id="ui-layer">
+                                    <div>SCORE: <br><span id="score" style="display:inline-block; margin-top:10px;">0</span></div>
+                                    <div id="lives-container">♥♥♥</div>
+                                    <div id="combo-container">COMBO: <span id="combo">0</span><span id="multiplier">x1</span><br><span id="round-ui" style="color:#0ff; font-size:10px; margin-top:10px; display:block;">ROUND 1</span></div>
+                                </div>
+                                
+                                <div id="track-info">NOW PLAYING: <span id="current-track">NONE</span></div>
+
+                                <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+                                <!-- INITIAL INTRO SCREEN -->
+                                <div id="intro-screen" class="overlay">
+                                    <h1>RHYTHMIK</h1>
+                                    <p>PRESS ENTER</p>
+                                </div>
+
+                                <!-- SONG SELECTION SCREEN -->
+                                <div id="start-screen" class="overlay hidden">
+                                    <h1>TYPE RHYTHM</h1>
+                                    <h2 style="color: #ff0055; margin-top:10px;">OVERKILL EDITION</h2>
+                                    
+                                    <div id="song-selection-display">
+                                        <div style="font-size:10px; color:#aaa; margin-bottom:10px;">USE [◀] / [▶] TO SELECT TRACK</div>
+                                        <span id="center-song-title">MASTER OF PUPPETS</span>
+                                    </div>
+
+                                    <p style="line-height: 1.8; font-size: 10px; color: #ccc;">
+                                        <span style="color:#0f0">+ A +</span> 1-UP | 
+                                        <span style="color:#0ff">~ A ~</span> SLOW-MO | 
+                                        <span style="color:#f50">[ A ]</span> NUKE
+                                    </p>
+                                    <button id="start-btn">INSERT COIN [ENTER]</button>
+                                </div>
+
+                                <div id="pause-screen" class="overlay hidden">
+                                    <h1 style="color: #ffaa00;">PAUSED</h1>
+                                    <button id="resume-btn" class="selected-btn">RESUME</button>
+                                    <button id="quit-btn" style="background-color: #333; color: #fff;">QUIT GAME</button>
+                                </div>
+
+                                <div id="game-over-screen" class="overlay hidden">
+                                    <h1 style="color: #fff; text-shadow: 0 0 20px #f00;">WASTED</h1>
+                                    <p>FINAL SCORE: <span id="final-score">0</span></p>
+                                    <button id="restart-btn">CONTINUE? [ENTER]</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Global Realistic CRT Overlay (Covers Menu & Gameplay) -->
+                        <div class="crt-overlay"></div>
+                    </div>
+                </div>
+
+                <div class="control-panel-wrapper chameleon-part">
+                    <div class="control-panel">
+                        <div class="start-buttons"><div class="p1-start"></div></div>
+                        <div class="joystick-base"><div class="joystick-shaft"></div><div class="joystick-ball"></div></div>
+                        <div class="buttons-container"><div class="action-button btn-red"></div><div class="action-button btn-blue"></div><div class="action-button btn-green"></div></div>
+                    </div>
+                </div>
+
+                <div class="cabinet-base chameleon-part">
+                    <div class="coin-door-panel">
+                        <div class="coin-slot"><div class="coin-insert"></div><div class="coin-return"></div></div>
+                        <div class="coin-slot"><div class="coin-insert"></div><div class="coin-return"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT CABINET -->
+            <div class="arcade-cabinet right-cabinet">
+                <div class="marquee"><h1>RHYTHMIK</h1></div>
+                <div class="screen-section">
+                    <div class="screen-housing"></div>
+                    <div class="monitor-glass">
+                        <div class="side-screen-content">
+                            <span class="sub">TRACK CYCLING</span>
+                            <div id="right-screen-title">--</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="control-panel-wrapper">
+                    <div class="control-panel">
+                        <div class="start-buttons"><div class="p1-start"></div></div>
+                        <div class="joystick-base"><div class="joystick-shaft"></div><div class="joystick-ball"></div></div>
+                        <div class="buttons-container"><div class="action-button btn-red"></div><div class="action-button btn-blue"></div><div class="action-button btn-green"></div></div>
+                    </div>
+                </div>
+                <div class="cabinet-base"><div class="coin-door-panel"><div class="coin-slot"><div class="coin-insert"></div><div class="coin-return"></div></div></div></div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
