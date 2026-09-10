@@ -68,9 +68,9 @@
                                     <input type="text" id="auth-username" placeholder="USERNAME" class="retro-input" maxlength="12">
                                     <input type="email" id="auth-email" placeholder="EMAIL" class="retro-input">
                                     <input type="password" id="auth-password" placeholder="PASSWORD" class="retro-input">
-                                    <div>
-                                        <button id="btn-login">LOGIN</button>
-                                        <button id="btn-register" class="selected-btn">REGISTER</button>
+                                    <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
+                                        <button id="btn-login" class="selected-btn">LOGIN</button>
+                                        <button id="btn-register">REGISTER</button>
                                     </div>
                                     <p id="auth-error" style="color:#ff0000; font-size:10px; margin-top:15px;"></p>
                                 </div>
@@ -81,16 +81,18 @@
                                     
                                     <div style="margin: 20px 0; border: 2px dashed #ff0055; padding: 15px; background: rgba(255,0,85,0.1);">
                                         <h3 style="font-size:12px; margin-bottom:15px;">SELECT MODE</h3>
-                                        <button id="btn-mode-solo" class="selected-btn">SOLO</button>
-                                        <button id="btn-mode-duo">DUO (CO-OP)</button>
-                                        <button id="btn-mode-1v1">1v1 (VERSUS)</button>
+                                        <div style="display: flex; gap: 5px; justify-content: center;">
+                                            <button id="btn-mode-solo" class="selected-btn">SOLO</button>
+                                            <button id="btn-mode-duo">DUO</button>
+                                            <button id="btn-mode-1v1">1v1</button>
+                                        </div>
                                     </div>
 
                                     <div id="multiplayer-controls" class="hidden" style="margin-top:20px;">
-                                        <button id="btn-create-room">CREATE ROOM</button>
-                                        <p style="font-size:10px; margin: 10px 0;">OR</p>
-                                        <input type="text" id="join-room-id" placeholder="ENTER ROOM ID" class="retro-input" style="width: 200px;">
-                                        <button id="btn-join-room">JOIN ROOM</button>
+                                        <button id="btn-create-room" class="selected-btn" style="width: 80%;">CREATE ROOM</button>
+                                        <p style="font-size:10px; margin: 15px 0; color: #666;">--- OR ---</p>
+                                        <input type="text" id="join-room-id" placeholder="ENTER ROOM ID" class="retro-input" style="width: 200px; margin: 0 auto 10px auto;">
+                                        <button id="btn-join-room" style="width: 80%;">JOIN ROOM</button>
                                     </div>
 
                                     <div id="room-waiting" class="hidden" style="margin-top:20px; color:#0f0;">
@@ -109,20 +111,28 @@
                                         <span id="center-song-title">MASTER OF PUPPETS</span>
                                     </div>
 
-                                    <button id="start-btn">BEGIN GAME [ENTER]</button>
+                                    <p style="line-height: 1.8; font-size: 10px; color: #ccc; margin-bottom: 20px;">
+                                        <span style="color:#0f0">+ A +</span> 1-UP | 
+                                        <span style="color:#0ff">~ A ~</span> SLOW-MO | 
+                                        <span style="color:#f50">[ A ]</span> NUKE
+                                    </p>
+
+                                    <button id="start-btn" class="selected-btn">BEGIN GAME [ENTER]</button>
                                     <div id="loading-indicator" class="hidden blink" style="color: #0f0; margin-top: 15px; font-size: 14px;">LOADING AUDIO DATA...</div>
                                 </div>
 
                                 <div id="pause-screen" class="overlay hidden">
                                     <h1 style="color: #ffaa00;">PAUSED</h1>
-                                    <button id="resume-btn" class="selected-btn">RESUME</button>
-                                    <button id="quit-btn" style="background-color: #333; color: #fff;">QUIT</button>
+                                    <div style="display:flex; flex-direction:column; gap:10px; align-items:center; margin-top: 20px;">
+                                        <button id="resume-btn" class="selected-btn" style="width: 200px;">RESUME</button>
+                                        <button id="quit-btn" style="width: 200px; background-color: #333; color: #fff;">QUIT GAME</button>
+                                    </div>
                                 </div>
 
                                 <div id="game-over-screen" class="overlay hidden">
                                     <h1 id="game-over-title" style="color: #fff; text-shadow: 0 0 20px #f00;">WASTED</h1>
                                     <p>FINAL SCORE: <span id="final-score">0</span></p>
-                                    <button id="restart-btn">RETURN TO LOBBY</button>
+                                    <button id="restart-btn" class="selected-btn" style="margin-top:20px;">RETURN TO LOBBY</button>
                                 </div>
                             </div>
                         </div>
