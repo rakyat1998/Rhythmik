@@ -6,6 +6,10 @@
     <title>8-Bit Type Rhythm: Arcade Room</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
     <link rel="stylesheet" href="style.css">
+    
+    <!-- Firebase SDK (Compat Version for Zero-Build Vanilla Deployments on Netlify) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -54,38 +58,93 @@
                         <div id="scale-wrapper">
                             <div id="game-container">
                                 
+                                <!-- STANDARD GAME UI -->
                                 <div id="ui-layer">
                                     <div>SCORE: <br><span id="score" style="display:inline-block; margin-top:10px;">0</span></div>
                                     <div id="lives-container">♥♥♥</div>
                                     <div id="combo-container">COMBO: <span id="combo">0</span><span id="multiplier">x1</span><br><span id="round-ui" style="color:#0ff; font-size:10px; margin-top:10px; display:block;">ROUND 1</span></div>
+                                </div>
+
+                                <!-- 1v1 TUG OF WAR HUD -->
+                                <div id="versus-ui" class="hidden">
+                                    <div class="versus-meta">
+                                        <span style="color: #00f3ff;">P1 (BLUE)</span>
+                                        <span id="versus-timer" style="color: #fff;">60s</span>
+                                        <span style="color: #ff0055;">P2 (RED)</span>
+                                    </div>
+                                    <div class="tug-bar-frame">
+                                        <div id="tug-bar-p1"></div>
+                                        <div id="tug-bar-p2"></div>
+                                    </div>
                                 </div>
                                 
                                 <div id="track-info">NOW PLAYING: <span id="current-track">NONE</span></div>
 
                                 <canvas id="gameCanvas" width="800" height="600"></canvas>
 
-                                <!-- FIRST MAIN TITLE SLIDE -->
+                                <!-- 1. SPLASH SCREEN -->
                                 <div id="intro-screen" class="overlay">
                                     <h1>RHYTHMIK</h1>
                                     <p>PRESS ENTER</p>
                                 </div>
 
-                                <!-- SONG SELECTION SCREEN -->
+                                <!-- 2. ROOT MODE SELECTION -->
+                                <div id="mode-select-screen" class="overlay hidden">
+                                    <h1>SELECT MODE</h1>
+                                    <button id="btn-mode-solo">SOLO GAME</button>
+                                    <button id="btn-mode-multi">MULTIPLAYER</button>
+                                </div>
+
+                                <!-- 3. MULTIPLAYER SUB-MENU -->
+                                <div id="multi-select-screen" class="overlay hidden">
+                                    <h1 style="color: #ff0055;">MULTIPLAYER</h1>
+                                    <button id="btn-multi-duo">DUO (CO-OP)</button>
+                                    <button id="btn-multi-1v1">1v1 (VERSUS)</button>
+                                    <button id="btn-multi-back" style="background:#444; color:#fff;">BACK</button>
+                                </div>
+
+                                <!-- 4. NETWORK LOBBY (P2P WEBRTC) -->
+                                <div id="lobby-screen" class="overlay hidden">
+                                    <h1 id="lobby-title" style="color: #00f3ff; font-size: 24px;">NETWORK LOBBY</h1>
+                                    
+                                    <div id="lobby-create-sec" style="margin-bottom: 25px;">
+                                        <button id="btn-create-room">CREATE ROOM</button>
+                                        <div id="room-code-display" class="hidden">
+                                            <p style="font-size: 10px; color:#aaa; margin-top: 15px;">SHARE CODE WITH PLAYER 2:</p>
+                                            <span id="generated-code" class="code-badge">----</span>
+                                            <p class="blink" style="font-size: 9px; color:#0ff; margin-top:10px;">WAITING FOR PEER...</p>
+                                        </div>
+                                    </div>
+
+                                    <div style="border-top: 1px dashed #444; width: 80%; margin: 10px auto;"></div>
+
+                                    <div id="lobby-join-sec">
+                                        <p style="font-size: 10px; color: #ccc;">JOIN AN EXISTING ROOM:</p>
+                                        <input type="text" id="room-input" placeholder="CODE" maxlength="4">
+                                        <br>
+                                        <button id="btn-join-room">JOIN ROOM</button>
+                                    </div>
+
+                                    <p id="lobby-status-msg" style="font-size: 10px; color: #ff0055; margin-top: 20px;"></p>
+                                    <button id="btn-lobby-back" style="background:#222; color:#aaa; font-size:10px; margin-top:10px;">CANCEL</button>
+                                </div>
+
+                                <!-- 5. SONG SELECTION SCREEN -->
                                 <div id="start-screen" class="overlay hidden">
                                     <h1>TYPE RHYTHM</h1>
-                                    <h2 style="color: #ff0055; margin-top:10px;">OVERKILL EDITION</h2>
+                                    <h2 id="room-role-indicator" style="color: #ff0055; margin-top:10px; font-size:12px;">OVERKILL EDITION</h2>
                                     
                                     <div id="song-selection-display">
                                         <div style="font-size:10px; color:#aaa; margin-bottom:10px;">USE [◀] / [▶] TO SELECT TRACK</div>
                                         <span id="center-song-title">MASTER OF PUPPETS</span>
                                     </div>
 
-                                    <p style="line-height: 1.8; font-size: 10px; color: #ccc;">
+                                    <p id="mode-instructions" style="line-height: 1.8; font-size: 10px; color: #ccc;">
                                         <span style="color:#0f0">+ A +</span> 1-UP | 
                                         <span style="color:#0ff">~ A ~</span> SLOW-MO | 
                                         <span style="color:#f50">[ A ]</span> NUKE
                                     </p>
-                                    <button id="start-btn">INSERT COIN [ENTER]</button>
+                                    <button id="start-btn">START GAME [ENTER]</button>
                                 </div>
 
                                 <!-- PAUSE SCREEN -->
@@ -97,8 +156,8 @@
 
                                 <!-- GAME OVER SCREEN -->
                                 <div id="game-over-screen" class="overlay hidden">
-                                    <h1 style="color: #fff; text-shadow: 0 0 20px #f00;">WASTED</h1>
-                                    <p>FINAL SCORE: <span id="final-score">0</span></p>
+                                    <h1 id="game-over-title" style="color: #fff; text-shadow: 0 0 20px #f00;">WASTED</h1>
+                                    <p id="game-over-desc">FINAL SCORE: <span id="final-score">0</span></p>
                                     <button id="restart-btn">CONTINUE? [ENTER]</button>
                                 </div>
                             </div>
