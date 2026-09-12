@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>8-Bit Type Rhythm: Arcade Room</title>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+        <link rel="stylesheet" href="style.css">
+
+        <!-- Firebase SDKs (Firestore kept ONLY for multiplayer matchmaking signaling) -->
+        <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    </head>
+
+    <body>
+        <!-- AURA AND VISUALIZER CANVAS (Background) -->
+        <canvas id="bg-canvas"></canvas>
+
+        <div id="arcade-scaler">
+            <div id="arcade-room" class="zoomed-in-view">
+
+                <!-- LEFT CABINET -->
+                <div class="arcade-cabinet left-cabinet">
+                    <div class="marquee side-chameleon">
+                        <h1>RHYTHMIK</h1>
+                    </div>
+                    <div class="screen-section">
+                        <div class="screen-housing side-chameleon"></div>
+                        <div class="monitor-glass">
+                            <div class="side-screen-content">
+                                <span class="sub">TRACK CYCLING</span>
+                                <div id="left-screen-title">--</div>
+                                <div class="insert-coin-prompt">INSERT COIN</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="control-panel-wrapper side-chameleon">
+                        <div class="control-panel">
+                            <div class="start-buttons">
+                                <div class="p1-start"></div>
+                            </div>
+                            <div class="joystick-base">
+                                <div class="joystick-shaft"></div>
+                                <div class="joystick-ball"></div>
+                            </div>
+                            <div class="buttons-container">
+                                <div class="action-button btn-red"></div>
+                                <div class="action-button btn-blue"></div>
+                                <div class="action-button btn-green"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cabinet-base side-chameleon">
+                        <div class="coin-door-panel">
+                            <div class="coin-slot">
+                                <div class="coin-insert"></div>
+                                <div class="coin-return"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CENTER ACTIVE PLAYER CABINET -->
+                <div class="arcade-cabinet center-cabinet" id="arcade-cabinet">
+                    <div class="marquee chameleon-part">
+                        <h1>RHYTHMIK<br><span>OVERKILL</span></h1>
+                    </div>
+
+                    <div class="screen-section">
+                        <div class="screen-housing chameleon-part"></div>
+                        <div class="monitor-glass">
+                            <div id="scale-wrapper">
+                                <div id="game-container">
+
+                                    <!-- IN-GAME HUD -->
+                                    <div id="ui-layer">
+                                        <div>SCORE: <br><span id="score"
+                                                style="display:inline-block; margin-top:10px;">0</span></div>
+                                        <div id="lives-container">♥♥♥</div>
+                                        <div style="text-align: right;">
+                                            <div id="combo-container">
+                                                COMBO: <span id="combo">0</span><span id="multiplier">x1</span><br>
+                                                <span id="round-ui"
+                                                    style="color:#0ff; font-size:10px; margin-top:10px; display:block;">ROUND
+                                                    1</span>
+                                            </div>
+                                            <div
+                                                style="margin-top:15px; color:#ffaa00; font-size:12px; text-shadow: 2px 2px 0 #000;">
+                                                COINS: <span id="session-coins">0</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div id="track-info">NOW PLAYING: <span id="current-track">NONE</span></div>
+
+                                    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+                                    <!-- INTRO SCREEN -->
+                                    <div id="intro-screen" class="overlay">
+                                        <div class="intro-content">
+                                            <h1 class="chromatic-title">RHYTHMIK</h1>
+                                            <p class="blink press-enter-text">PRESS ENTER</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- ALIAS SCREEN -->
+                                    <div id="alias-screen" class="overlay hidden">
+                                        <h1>RHYTHMIK</h1>
+                                        <h2 style="color: #ff0055; font-size:12px; margin-bottom:20px;">SYSTEM BOOT
+                                            SEQUENCE</h2>
+                                        <input type="text" id="player-alias" placeholder="ENTER ALIAS"
+                                            class="retro-input" maxlength="12">
+                                        <button id="btn-continue" class="selected-btn"
+                                            style="margin-top: 15px;">CONTINUE [ENTER]</button>
+                                    </div>
+
+                                    <!-- LOBBY SCREEN -->
+                                    <div id="lobby-screen" class="overlay hidden">
+                                        <div
+                                            style="display: flex; justify-content: space-between; width: 85%; align-items: center; margin-bottom: 15px;">
+                                            <h2 style="color: #0ff; font-size: 14px; margin:0;">USER: <span
+                                                    id="lobby-username">PLAYER</span></h2>
+                                            <h2 style="color: #ffaa00; font-size: 14px; margin:0;">BANK: <span
+                                                    id="lobby-coins">0</span></h2>
+                                        </div>
+
+                                        <div
+                                            style="margin: 10px 0; border: 2px dashed #ff0055; padding: 25px; background: rgba(255,0,85,0.1); width: 80%;">
+                                            <h3 style="font-size:14px; margin-bottom:25px; color:#fff;">MAIN MENU</h3>
+                                            <div
+                                                style="display: flex; flex-direction: column; gap: 15px; align-items: center;">
+                                                <button id="btn-play-arcade" class="selected-btn"
+                                                    style="width: 250px;">PLAY ARCADE</button>
+                                                <button id="btn-view-profile" style="width: 250px;">LOCAL
+                                                    RECORDS</button>
+                                                <button id="btn-multiplayer" style="width: 250px;">MULTIPLAYER</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- MULTIPLAYER LOBBY -->
+                                    <div id="multiplayer-screen" class="overlay hidden">
+                                        <h2 style="color: #0ff; font-size: 14px; margin-bottom: 20px;">MULTIPLAYER
+                                            TERMINAL</h2>
+
+                                        <div
+                                            style="margin: 10px 0; border: 2px dashed #ff0055; padding: 15px; background: rgba(255,0,85,0.1); width: 80%;">
+                                            <div
+                                                style="display: flex; gap: 5px; justify-content: center; margin-bottom: 20px;">
+                                                <button id="btn-mode-duo" class="selected-btn">DUO CO-OP</button>
+                                                <button id="btn-mode-1v1">1v1 VERSUS</button>
+                                            </div>
+
+                                            <button id="btn-create-room" style="width: 80%;">CREATE ROOM</button>
+                                            <p style="font-size:10px; margin: 10px 0; color: #666;">--- OR ---</p>
+                                            <input type="text" id="join-room-id" placeholder="ENTER ROOM ID"
+                                                class="retro-input" style="width: 200px; margin: 0 auto 5px auto;">
+                                            <button id="btn-join-room" style="width: 80%;">JOIN ROOM</button>
+                                        </div>
+
+                                        <div id="room-waiting" class="hidden" style="margin-top:15px; color:#0f0;">
+                                            <p>ROOM CREATED!</p>
+                                            <p style="font-size:20px; margin:10px 0; color:#fff;">ID: <span
+                                                    id="display-room-id">-----</span></p>
+                                            <p class="blink">WAITING FOR P2...</p>
+                                        </div>
+
+                                        <button id="btn-mp-back" class="selected-btn" style="margin-top:20px;">BACK TO
+                                            MENU [ESC]</button>
+                                    </div>
+
+                                    <!-- PROFILE SCREEN -->
+                                    <div id="profile-screen" class="overlay hidden">
+                                        <h1 style="color: #ffaa00; margin-bottom: 20px;">PLAYER TERMINAL</h1>
+                                        <div
+                                            style="display: flex; flex-direction: column; align-items: center; width: 80%; border: 2px solid #0ff; background: rgba(0, 255, 255, 0.1); padding: 30px;">
+                                            <h2 style="color: #0ff; font-size:18px; margin-bottom: 30px;">[ <span
+                                                    id="prof-username">PLAYER</span> ]</h2>
+
+                                            <p style="font-size:12px; color:#aaa; margin-bottom: 5px;">ALL-TIME HIGH
+                                                SCORE</p>
+                                            <p style="font-size:24px; color:#fff; margin-bottom: 25px;"
+                                                id="prof-highscore">0</p>
+
+                                            <p style="font-size:12px; color:#aaa; margin-bottom: 5px;">TOTAL COINS
+                                                EARNED</p>
+                                            <p style="font-size:24px; color:#ffaa00; margin-bottom: 25px;"
+                                                id="prof-coins">0</p>
+
+                                            <p style="font-size:12px; color:#aaa; margin-bottom: 5px;">TRACKS UNLOCKED
+                                            </p>
+                                            <p style="font-size:24px; color:#0f0;" id="prof-unlocked">1 / 6</p>
+                                        </div>
+                                        <button id="btn-prof-back" class="selected-btn" style="margin-top:25px;">BACK TO
+                                            MENU [ESC]</button>
+                                    </div>
+
+                                    <!-- SONG SELECTION / UNLOCK SCREEN -->
+                                    <div id="start-screen" class="overlay hidden">
+                                        <h1>TYPE RHYTHM</h1>
+                                        <h2 style="color: #ff0055; margin-top:10px;">OVERKILL EDITION</h2>
+
+                                        <div id="song-selection-display">
+                                            <div style="font-size:10px; color:#aaa; margin-bottom:10px;">USE [◀] / [▶]
+                                                TO SELECT TRACK</div>
+                                            <span id="center-song-title">MASTER OF PUPPETS</span>
+                                            <div id="song-cost-display"
+                                                style="color: #ffaa00; font-size:12px; margin-top:15px;" class="hidden">
+                                                COST: 50 COINS</div>
+                                        </div>
+
+                                        <p style="line-height: 1.8; font-size: 10px; color: #ccc; margin-bottom: 20px;">
+                                            <span style="color:#0f0">+ A +</span> 1-UP |
+                                            <span style="color:#0ff">~ A ~</span> SLOW |
+                                            <span style="color:#ff4400">[ A ]</span> NUKE<br>
+                                            <span
+                                                style="color:#ff0033; font-size:12px; display:inline-block; margin-top:10px; animation: blink 1s infinite;">AVOID:
+                                                ☠ A ☠ (POISON)</span>
+                                        </p>
+                                        <button id="start-btn" class="selected-btn">INSERT COIN [ENTER]</button>
+                                        <div id="loading-indicator" class="hidden blink"
+                                            style="color: #0f0; margin-top: 15px; font-size: 14px;">PREPARING AUDIO...
+                                        </div>
+                                    </div>
+
+                                    <!-- PAUSE SCREEN -->
+                                    <div id="pause-screen" class="overlay hidden">
+                                        <h1 style="color: #ffaa00;">PAUSED</h1>
+                                        <div
+                                            style="display:flex; flex-direction:column; gap:10px; align-items:center; margin-top: 20px;">
+                                            <button id="resume-btn" class="selected-btn"
+                                                style="width: 200px;">RESUME</button>
+                                            <button id="quit-btn"
+                                                style="width: 200px; background-color: #333; color: #fff;">ABORT
+                                                GAME</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- GAME OVER SCREEN -->
+                                    <div id="game-over-screen" class="overlay hidden">
+                                        <h1 id="game-over-title" style="color: #fff; text-shadow: 0 0 20px #f00;">WASTED
+                                        </h1>
+
+                                        <!-- Dynamic Conclusion Phrase -->
+                                        <h2 id="conclusion-phrase"
+                                            style="color: #0ff; font-size: 14px; margin-bottom: 25px; text-shadow: 0 0 10px #0ff; letter-spacing: 2px;">
+                                        </h2>
+
+                                        <p style="font-size: 14px; margin-bottom: 5px;">FINAL SCORE: <span
+                                                id="final-score" style="color:#fff;">0</span></p>
+                                        <p id="high-score-alert" class="hidden blink"
+                                            style="color: #0f0; font-size:10px; margin-bottom:15px;">NEW HIGH SCORE!</p>
+                                        <p style="font-size: 14px;">COINS BANKED: <span id="earned-coins"
+                                                style="color:#ffaa00;">+0</span></p>
+                                        <button id="restart-btn" class="selected-btn" style="margin-top:20px;">RETURN TO
+                                            MENU [ENTER]</button>
+                                    </div>
+
+                                </div>
+                            </div>
+                            <div class="crt-overlay"></div>
+                        </div>
+                    </div>
+
+                    <div class="control-panel-wrapper chameleon-part">
+                        <div class="control-panel">
+                            <div class="start-buttons">
+                                <div class="p1-start"></div>
+                            </div>
+                            <div class="joystick-base">
+                                <div class="joystick-shaft"></div>
+                                <div class="joystick-ball"></div>
+                            </div>
+                            <div class="buttons-container">
+                                <div class="action-button btn-red"></div>
+                                <div class="action-button btn-blue"></div>
+                                <div class="action-button btn-green"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cabinet-base chameleon-part">
+                        <div class="coin-door-panel">
+                            <div class="coin-slot">
+                                <div class="coin-insert"></div>
+                                <div class="coin-return"></div>
+                            </div>
+                            <div class="coin-slot">
+                                <div class="coin-insert"></div>
+                                <div class="coin-return"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT CABINET -->
+                <div class="arcade-cabinet right-cabinet">
+                    <div class="marquee side-chameleon">
+                        <h1>RHYTHMIK</h1>
+                    </div>
+                    <div class="screen-section">
+                        <div class="screen-housing side-chameleon"></div>
+                        <div class="monitor-glass">
+                            <div class="side-screen-content">
+                                <span class="sub">TRACK CYCLING</span>
+                                <div id="right-screen-title">--</div>
+                                <div class="insert-coin-prompt">INSERT COIN</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="control-panel-wrapper side-chameleon">
+                        <div class="control-panel">
+                            <div class="start-buttons">
+                                <div class="p1-start"></div>
+                            </div>
+                            <div class="joystick-base">
+                                <div class="joystick-shaft"></div>
+                                <div class="joystick-ball"></div>
+                            </div>
+                            <div class="buttons-container">
+                                <div class="action-button btn-red"></div>
+                                <div class="action-button btn-blue"></div>
+                                <div class="action-button btn-green"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cabinet-base side-chameleon">
+                        <div class="coin-door-panel">
+                            <div class="coin-slot">
+                                <div class="coin-insert"></div>
+                                <div class="coin-return"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <script src="script.js"></script>
+    </body>
+
+</html>
