@@ -1,9 +1,19 @@
+let isSplashActive = true;
+let isPlaying = false;
+let isPaused = false;
+
 function fitArcade() {
     const scaler = document.getElementById('arcade-scaler');
-    const scaleX = window.innerWidth / 2200; 
-    const scaleY = window.innerHeight / 1300;
-    const scale = Math.min(scaleX, scaleY, 1.2);
-    scaler.style.transform = `scale(${scale})`;
+    const targetWidth = 1000;
+    const targetHeight = 1250;
+    
+    const factor = isSplashActive ? 0.62 : 0.72;
+    
+    const scaleX = (window.innerWidth * factor) / targetWidth;
+    const scaleY = (window.innerHeight * factor) / targetHeight;
+    const finalScale = Math.min(scaleX, scaleY);
+    scaler.style.transform = `scale(${finalScale})`;
+    scaler.style.webkitTransform = `scale(${finalScale})`;
 }
 window.addEventListener('resize', fitArcade);
 fitArcade();
@@ -31,34 +41,26 @@ const finalScoreEl = document.getElementById('final-score');
 const resumeBtn = document.getElementById('resume-btn');
 const quitBtn = document.getElementById('quit-btn');
 
+// Replace synth engine with static MP3 routing per instructions
 const playlist = [
-    { title: "Master of Puppets", src: "audio/mop.mp3", bpm: 212 },
-    { title: "Super Mario Bros.", src: "audio/smb.mp3", bpm: 130 },
-    { title: "Shape Of You", src: "audio/shape.mp3", bpm: 150 },
-    { title: "Enter Sandman", src: "audio/sandman.mp3", bpm: 180 },
-    { title: "Scourage of Iron", src: "audio/iron.mp3", bpm: 212 },
-    { title: "New Divide", src: "audio/divide.mp3", bpm: 130 },
-    { title: "Creep", src: "audio/creep.mp3", bpm: 150 },
-    { title: "For Whom The Bell Tolls", src: "audio/belltolls.mp3", bpm: 180 }
+    { title: "Master of Puppets", src: "audio/creep.mp3", bpm: 130 },
+    { title: "Super Mario Bros.", src: "audio/creep.mp3", bpm: 120 },
+    { title: "Shape Of You", src: "audio/creep.mp3", bpm: 140 },
+    { title: "Enter Sandman", src: "audio/creep.mp3", bpm: 155 },
+    { title: "Scourge of Iron", src: "audio/creep.mp3", bpm: 160 },
+    { title: "New Divide", src: "audio/creep.mp3", bpm: 125 },
+    { title: "Creep", src: "audio/creep.mp3", bpm: 135 },
+    { title: "For Whom The Bell Tolls", src: "audio/creep.mp3", bpm: 150 }
 ];
 
 let currentSongIndex = 0;
 let bgMusic = new Audio();
 bgMusic.crossOrigin = "anonymous";
-bgMusic.preservesPitch = false; 
+bgMusic.preservesPitch = false;
 
-let currentSong = null;
-let nextSpawnTime = 0;
-let beatInterval = 0;
-
-let audioCtx;
-let analyser;
-let dataArray;
-let audioSource;
-let masterGain;
+let audioCtx, analyser, masterGain, dataArray;
 
 let activeLetters = [];
-let particles = [];
 let floatingTexts = [];
 
 let score = 0;
@@ -68,19 +70,25 @@ let comboMultiplier = 1;
 let lives = 3;
 const MAX_LIVES = 5;
 
+let lettersSpawnedCount = 0;
+let powerUpCooldown = 0;
+
 let arcadeShakeIntensity = 0;
-let isSplashActive = true;
-let isPlaying = false;
-let isPaused = false;
 let pauseSelectedIndex = 0;
 
 let slowMoTimer = 0;
-let targetPlaybackRate = 1.0; 
 let targetFallSpeed = 200; 
 let currentFallSpeed = 200;
+let targetPlaybackRate = 1.0;
+let currentPlaybackRate = 1.0;
+let beatInterval = 0;
+let nextSpawnTime = 0;
 let lastTime = 0;
 
-const comboColors = ['#fff', '#00ffcc', '#ffaa00', '#ff0055', '#b300ff', '#ff0000'];
+window.musicReaction = 0;
+window.musicHue = 280;
+
+const comboColors = ['#ffffff', '#00f3ff', '#ffe600', '#ff0055', '#b300ff', '#ff0033'];
 const shredPhrases = ["NICE!", "BRUTAL!", "SHREDDING!", "UNREAL!", "GODLIKE!"];
 
 const bgCanvas = document.getElementById('bg-canvas');
@@ -88,166 +96,137 @@ const bgCtx = bgCanvas.getContext('2d');
 const leftCab = document.querySelector('.left-cabinet');
 const rightCab = document.querySelector('.right-cabinet');
 
-const bgParticles = [];
-const NUM_BG_PARTICLES = 300; 
-
 function resizeBackground() {
     bgCanvas.width = window.innerWidth;
     bgCanvas.height = window.innerHeight;
-    
-    bgParticles.length = 0;
-    for(let i=0; i<NUM_BG_PARTICLES; i++) {
-        bgParticles.push({
-            x: Math.random() * bgCanvas.width, 
-            y: Math.random() * bgCanvas.height,
-            baseSize: Math.random() * 1.5 + 0.5, 
-            hueOffset: Math.random() * 60 - 30
-        });
-    }
 }
 window.addEventListener('resize', resizeBackground);
 resizeBackground();
 
 function drawBackground() {
     requestAnimationFrame(drawBackground);
-    if (!analyser) return;
     
-    analyser.getByteFrequencyData(dataArray);
-    
-    let bassSum = 0;
-    let bassCount = Math.floor(dataArray.length / 4); 
-    
-    for(let i = 0; i < bassCount; i++) {
-        bassSum += dataArray[i];
+    if (analyser && dataArray) {
+        analyser.getByteFrequencyData(dataArray);
+        let bassSum = 0;
+        let bassCount = Math.floor(dataArray.length / 4); 
+        for(let i = 0; i < bassCount; i++) bassSum += dataArray[i];
+        const bassAvg = bassCount > 0 ? (bassSum / bassCount) : 0; 
+        window.musicReaction = bassAvg / 255;
+        window.musicHue = (bassAvg * 1.5) % 360;
+    } else {
+        window.musicReaction = (Math.sin(Date.now() / 300) + 1) / 4;
     }
-    
-    const bassAvg = bassCount > 0 ? (bassSum / bassCount) : 0; 
-    const reaction = bassAvg / 255;
-    
+
     bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
     
-    const cx = bgCanvas.width / 2;
-    const cy = bgCanvas.height / 2;
-    const maxRadius = Math.max(cx, cy) * 1.2;
-    const auraRadius = reaction * maxRadius + 150;
-    const hue = (bassAvg * 1.5) % 360;
-    
-    const gradient = bgCtx.createRadialGradient(cx, cy, 0, cx, cy, auraRadius);
-    gradient.addColorStop(0, `hsla(${hue}, 90%, 50%, ${0.1 + reaction * 0.2})`);
-    gradient.addColorStop(1, `hsla(${hue}, 80%, 10%, 0)`);
-    
-    bgCtx.fillStyle = gradient;
-    bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
-    
-    let dynamicBrightness = 0.65 + reaction * 0.5; 
-    leftCab.style.filter = `hue-rotate(${hue}deg) brightness(${dynamicBrightness}) contrast(1.2)`;
-    rightCab.style.filter = `hue-rotate(${hue}deg) brightness(${dynamicBrightness}) contrast(1.2)`;
-    
-    const cabGlow = `0 40px 100px rgba(0,0,0,1), 0 0 ${50 + reaction * 250}px hsla(${hue}, 100%, 60%, ${reaction * 0.8})`;
-    leftCab.style.boxShadow = cabGlow;
-    rightCab.style.boxShadow = cabGlow;
-
-    const centerCabParts = arcadeCabinet.querySelectorAll('.chameleon-part');
-    if (slowMoTimer > 0) {
-        centerCabParts.forEach(p => {
-            p.style.animation = 'none'; 
-            p.style.filter = `hue-rotate(${hue}deg) brightness(${0.5 + reaction * 2.0}) saturate(${1 + reaction}) drop-shadow(0 0 ${20 + reaction * 80}px hsla(${hue}, 100%, 50%, ${0.5 + reaction * 0.5}))`;
-        });
+    // Draw Full-Screen Edge-to-Edge Equalizer during menus
+    if (!isPlaying && !isPaused) {
+        if(dataArray && dataArray.length > 0) {
+            const totalBars = dataArray.length;
+            const barWidth = Math.ceil(bgCanvas.width / totalBars);
+            for(let i = 0; i < totalBars; i++) {
+                const heightPct = dataArray[i] / 255;
+                const barHeight = heightPct * bgCanvas.height;
+                
+                let barGrad = bgCtx.createLinearGradient(0, bgCanvas.height, 0, bgCanvas.height - barHeight);
+                barGrad.addColorStop(0, `hsla(${(window.musicHue + i*5) % 360}, 100%, 30%, 0.8)`);
+                barGrad.addColorStop(1, `hsla(${(window.musicHue + i*5) % 360}, 100%, 70%, 1.0)`);
+                
+                bgCtx.fillStyle = barGrad;
+                bgCtx.fillRect(i * barWidth, bgCanvas.height - barHeight, barWidth + 1, barHeight);
+            }
+        }
     } else {
-        centerCabParts.forEach(p => {
-            if (p.style.animation === 'none') {
-                p.style.animation = ''; 
-                p.style.filter = '';
+        // Pure dark background for gameplay, no particles
+        bgCtx.fillStyle = 'rgba(0, 0, 0, 0.95)';
+        bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+    }
+    
+    // Synchronize machines with audio bass
+    let dynBrightSide = 0.3 + (window.musicReaction * 0.7); 
+    let cabFilterSide = `hue-rotate(${window.musicHue}deg) brightness(${dynBrightSide}) contrast(1.2)`;
+    
+    leftCab.style.filter = cabFilterSide;
+    rightCab.style.filter = cabFilterSide;
+    
+    const sideGlow = `0 40px 100px rgba(0,0,0,1), 0 0 ${50 + window.musicReaction * 300}px hsla(${window.musicHue}, 100%, 60%, ${window.musicReaction * 0.8})`;
+    leftCab.style.boxShadow = sideGlow; 
+    rightCab.style.boxShadow = sideGlow;
+
+    // Center Cabinet intense gameplay reactions
+    const parts = arcadeCabinet.querySelectorAll('.chameleon-part');
+    if (slowMoTimer <= 0) {
+        parts.forEach(p => { 
+            if (!p.classList.contains('flash-nuke') && !p.classList.contains('flash-1up') && !p.classList.contains('flash-combo')) {
+                p.style.animation = 'none'; 
+                if(isPlaying) {
+                    p.style.filter = `hue-rotate(${window.musicHue}deg) brightness(${0.8 + window.musicReaction * 1.5}) contrast(1.3)`;
+                } else {
+                    p.style.filter = cabFilterSide; 
+                }
             }
         });
-    }
-
-    for (let p of bgParticles) {
-        const dx = p.x - cx;
-        const dy = p.y - cy;
-        const dist = Math.sqrt(dx*dx + dy*dy) || 1;
-        const nx = dx / dist;
-        const ny = dy / dist;
-
-        const outSpeed = 0.02 + reaction * 4; 
-        p.x += nx * outSpeed;
-        p.y += ny * outSpeed;
-
-        const jitter = 0.2 + reaction * 1.5;
-        p.x += (Math.random() - 0.5) * jitter;
-        p.y += (Math.random() - 0.5) * jitter;
         
-        if (p.x < 0 || p.x > bgCanvas.width || p.y < 0 || p.y > bgCanvas.height) {
-            p.x = cx + (Math.random() - 0.5) * 200;
-            p.y = cy + (Math.random() - 0.5) * 200;
+        if(isPlaying) {
+            const centerGlow = `0 40px 100px rgba(0,0,0,1), 0 0 ${100 + window.musicReaction * 500}px hsla(${window.musicHue}, 100%, 60%, ${0.5 + window.musicReaction * 0.5})`;
+            arcadeCabinet.style.boxShadow = centerGlow;
+        } else {
+            arcadeCabinet.style.boxShadow = sideGlow;
         }
-        
-        const size = p.baseSize * (1 + reaction * 1.5);
-        bgCtx.fillStyle = `hsla(${(hue + p.hueOffset) % 360}, 90%, ${50 + reaction * 40}%, ${0.3 + reaction * 0.7})`;
-        bgCtx.beginPath();
-        bgCtx.arc(p.x, p.y, size, 0, Math.PI * 2);
-        bgCtx.fill();
+    } else {
+        // Override visually if slow-mo is active
+        arcadeCabinet.style.boxShadow = `0 40px 100px rgba(0,0,0,1), 0 0 200px rgba(0, 255, 255, 0.8)`;
     }
 }
-
-function updateSongDisplays() {
-    const len = playlist.length;
-    const prevIndex = (currentSongIndex - 1 + len) % len;
-    const nextIndex = (currentSongIndex + 1) % len;
-    
-    document.getElementById('left-screen-title').innerText = playlist[prevIndex].title;
-    document.getElementById('right-screen-title').innerText = playlist[nextIndex].title;
-    document.getElementById('center-song-title').innerText = `◀ ${playlist[currentSongIndex].title} ▶`;
-}
-updateSongDisplays();
+drawBackground();
 
 function initAudio() {
-    if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (!masterGain) {
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 128;
-        masterGain = audioCtx.createGain(); 
-        
-        audioSource = audioCtx.createMediaElementSource(bgMusic);
-        audioSource.connect(analyser); 
-        analyser.connect(masterGain);  
-        masterGain.connect(audioCtx.destination); 
-        
-        dataArray = new Uint8Array(analyser.frequencyBinCount);
-        drawBackground();
-    }
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
+    try {
+        if (!audioCtx) {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioContextClass) audioCtx = new AudioContextClass();
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        if (audioCtx && !masterGain) {
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 128;
+            masterGain = audioCtx.createGain();
+            
+            const audioSource = audioCtx.createMediaElementSource(bgMusic);
+            audioSource.connect(analyser);
+            analyser.connect(masterGain);
+            masterGain.connect(audioCtx.destination);
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+        }
+    } catch (err) {
+        console.warn("Audio Context init deferred:", err);
     }
 }
 
-function playMenuSelectSound() {
-    if (!audioCtx) return;
-    playTone(600, 'square', audioCtx.currentTime, 0.05, 0.2);
-}
-
-function playCoinSound() {
-    if (!audioCtx) return;
-    const t = audioCtx.currentTime;
-    playTone(987.77, 'square', t, 0.08, 0.3);
-    playTone(1318.51, 'square', t + 0.08, 0.4, 0.3);
+function startMenuMusic() {
+    bgMusic.src = playlist[currentSongIndex].src;
+    bgMusic.loop = true;
+    currentPlaybackRate = 1.0;
+    bgMusic.playbackRate = 1.0;
+    bgMusic.play().catch(e => console.log("Audio play blocked", e));
 }
 
 function playTone(freq, type, time, duration, vol, dropFreq = null) {
-    if (!audioCtx) return;
+    if (!audioCtx || !masterGain) return;
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.type = type; osc.frequency.setValueAtTime(freq, time);
     if (dropFreq) osc.frequency.exponentialRampToValueAtTime(dropFreq, time + duration);
     gain.gain.setValueAtTime(vol, time); gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
-    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.connect(gain); gain.connect(masterGain);
     osc.start(time); osc.stop(time + duration);
 }
 
 function playNoise(time, duration, vol) {
-    if (!audioCtx) return;
+    if (!audioCtx || !masterGain) return;
     const bufferSize = audioCtx.sampleRate * duration;
     const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -255,57 +234,67 @@ function playNoise(time, duration, vol) {
     const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
     const gain = audioCtx.createGain(); gain.gain.setValueAtTime(vol, time);
     gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
-    noise.connect(gain); gain.connect(audioCtx.destination);
+    noise.connect(gain); gain.connect(masterGain);
     noise.start(time);
 }
 
-function playHitSound() {
+function playMenuSelectSound() { if (audioCtx) playTone(600, 'square', audioCtx.currentTime, 0.05, 0.2); }
+function playCoinSound() {
     if (!audioCtx) return;
-    const time = audioCtx.currentTime;
-    const sfxType = Math.floor(Math.random() * 3); 
-    switch(sfxType) {
-        case 0: 
-            playTone(1200, 'square', time, 0.05, 0.15, 800); 
-            break;
-        case 1: 
-            playTone(1500, 'square', time, 0.08, 0.1, 400); 
-            playNoise(time, 0.02, 0.1); 
-            break;
-        case 2: 
-            playTone(800, 'square', time, 0.05, 0.1); 
-            playTone(1200, 'square', time + 0.05, 0.05, 0.15); 
-            break;
-    }
+    const t = audioCtx.currentTime;
+    playTone(987.77, 'square', t, 0.08, 0.3);
+    playTone(1318.51, 'square', t + 0.08, 0.4, 0.3);
 }
-
+function playHitSound() { if (audioCtx) playTone(1200, 'square', audioCtx.currentTime, 0.05, 0.15, 800); }
 function play1UPSound() {
     if (!audioCtx) return;
     const t = audioCtx.currentTime;
     playTone(523.25, 'square', t, 0.1, 0.3); playTone(659.25, 'square', t + 0.1, 0.1, 0.3); playTone(783.99, 'square', t + 0.2, 0.3, 0.3); 
 }
-
 function playNukeSound() {
     if (!audioCtx) return;
     const t = audioCtx.currentTime;
-    
     playTone(440, 'sine', t, 0.4, 0.2, 880);
-    playTone(554.37, 'sine', t + 0.1, 0.4, 0.2, 1108.73);
-    playTone(659.25, 'sine', t + 0.2, 0.4, 0.2, 1318.51);
-    playTone(880, 'sine', t + 0.3, 0.6, 0.3, 1760);
-    
     playTone(220, 'triangle', t, 1.0, 0.2, 110);
-    playTone(330, 'triangle', t, 1.0, 0.2, 165);
 }
-
-function playSlowMoSound() { if (!audioCtx) return; playTone(800, 'sine', audioCtx.currentTime, 1.0, 0.5, 100); }
-
+function playSlowMoSound() { if (audioCtx) playTone(800, 'sine', audioCtx.currentTime, 1.0, 0.5, 100); }
 function playDamageSound() {
     if (!audioCtx) return;
     const t = audioCtx.currentTime;
     playTone(400, 'square', t, 0.1, 0.3, 300); 
-    playTone(300, 'square', t + 0.1, 0.1, 0.3, 200);
     playTone(200, 'square', t + 0.2, 0.2, 0.3, 100);
 }
+
+const centerButtons = document.querySelectorAll('.center-cabinet .action-button');
+const centerJoystickBall = document.querySelector('.center-cabinet .joystick-ball');
+
+function animateHardwareDeck(char) {
+    if (centerJoystickBall) {
+        const offset = ((char.charCodeAt(0) - 65) % 3) - 1;
+        centerJoystickBall.style.transform = `translate(${offset * 14}px, -4px) scale(0.95)`;
+        centerJoystickBall.style.webkitTransform = `translate(${offset * 14}px, -4px) scale(0.95)`;
+        setTimeout(() => { 
+            centerJoystickBall.style.transform = ''; 
+            centerJoystickBall.style.webkitTransform = ''; 
+        }, 110);
+    }
+    if (centerButtons.length > 0) {
+        const btn = centerButtons[Math.floor(Math.random() * centerButtons.length)];
+        btn.style.transform = 'translateY(6px)';
+        btn.style.filter = 'brightness(2.2)';
+        setTimeout(() => { btn.style.transform = ''; btn.style.filter = ''; }, 90);
+    }
+}
+
+function updateSongDisplays() {
+    const len = playlist.length;
+    const prevIndex = (currentSongIndex - 1 + len) % len;
+    const nextIndex = (currentSongIndex + 1) % len;
+    document.getElementById('left-screen-title').innerText = playlist[prevIndex].title;
+    document.getElementById('right-screen-title').innerText = playlist[nextIndex].title;
+    document.getElementById('center-song-title').innerText = `◀ ${playlist[currentSongIndex].title} ▶`;
+}
+updateSongDisplays();
 
 function spawnLetter() {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -315,25 +304,18 @@ function spawnLetter() {
     let type = 'normal';
     let color = comboColors[Math.min(comboMultiplier - 1, comboColors.length - 1)];
     
-    if (Math.random() < 0.12) {
+    lettersSpawnedCount++;
+    if (powerUpCooldown > 0) powerUpCooldown--;
+
+    if (lettersSpawnedCount >= 7 && powerUpCooldown === 0 && Math.random() < 0.15) {
         const roll = Math.random();
         if (roll < 0.33) { type = '1up'; color = '#0f0'; }
         else if (roll < 0.66) { type = 'slow'; color = '#0ff'; }
         else { type = 'nuke'; color = '#ff4400'; }
+        
+        powerUpCooldown = 5; 
     }
-    
     activeLetters.push({ char, x, y: -30, color, type });
-}
-
-function createExplosion(x, y, color, scale = 1.0) {
-    const particleCount = 45 * scale;
-    for(let i = 0; i < particleCount; i++) {
-        particles.push({
-            x: x + (Math.random() - 0.5) * 40, y: y + (Math.random() - 0.5) * 40,
-            vx: (Math.random() - 0.5) * (1200 * scale), vy: (Math.random() - 0.5) * (1200 * scale),
-            life: 1.0 + Math.random() * 0.5, size: Math.random() * (10 * scale) + 2, color: color
-        });
-    }
 }
 
 function triggerPowerUp(letter) {
@@ -341,44 +323,33 @@ function triggerPowerUp(letter) {
         lives = Math.min(lives + 1, MAX_LIVES); play1UPSound();
         arcadeCabinet.classList.add('flash-1up');
         setTimeout(() => arcadeCabinet.classList.remove('flash-1up'), 400);
-        floatingTexts.push({ text: "1-UP!", x: letter.x, y: letter.y, life: 1.5, size: 20, color: '#0f0' });
+        floatingTexts.push({ text: "1-UP!", x: letter.x, y: letter.y, life: 1.5, size: 22, color: '#0f0' });
     } 
     else if (letter.type === 'nuke') {
         arcadeShakeIntensity = 80; playNukeSound();
         arcadeCabinet.classList.add('flash-nuke');
         setTimeout(() => arcadeCabinet.classList.remove('flash-nuke'), 500);
         let pointsGained = 0;
-        
-        let explosionsCount = 0;
         for (let i = activeLetters.length - 1; i >= 0; i--) {
-            let l = activeLetters[i]; 
-            if (explosionsCount < 8) {
-                createExplosion(l.x, l.y, l.color, 1.5);
-                explosionsCount++;
-            }
             pointsGained += (10 * comboMultiplier);
         }
         score += pointsGained;
         floatingTexts.push({ text: "NUKE DETONATED!", x: canvas.width/2, y: canvas.height/2, life: 2.0, size: 30, color: '#ff4400' });
-        if (pointsGained > 0) floatingTexts.push({ text: `+${pointsGained}`, x: canvas.width/2, y: canvas.height/2 + 40, life: 2.0, size: 20, color: '#fff' });
         activeLetters = []; 
-        
         targetFallSpeed = 200 + ((currentRound - 1) * 30); 
         nextSpawnTime = bgMusic.currentTime + 2.0; 
     }
     else if (letter.type === 'slow') {
         slowMoTimer = 6.0; playSlowMoSound();
-        floatingTexts.push({ text: "TIME WARP", x: letter.x, y: letter.y, life: 1.5, size: 20, color: '#0ff' });
+        floatingTexts.push({ text: "TIME WARP", x: letter.x, y: letter.y, life: 1.5, size: 22, color: '#0ff' });
     }
 }
 
 function updatePauseMenuUI() {
     if (pauseSelectedIndex === 0) {
-        resumeBtn.classList.add('selected-btn');
-        quitBtn.classList.remove('selected-btn');
+        resumeBtn.classList.add('selected-btn'); quitBtn.classList.remove('selected-btn');
     } else {
-        resumeBtn.classList.remove('selected-btn');
-        quitBtn.classList.add('selected-btn');
+        resumeBtn.classList.remove('selected-btn'); quitBtn.classList.add('selected-btn');
     }
 }
 
@@ -387,73 +358,42 @@ function togglePause() {
     isPaused = !isPaused;
     if (isPaused) {
         bgMusic.pause();
-        pauseSelectedIndex = 0;
-        updatePauseMenuUI();
-        pauseScreen.classList.remove('hidden');
+        pauseSelectedIndex = 0; updatePauseMenuUI(); pauseScreen.classList.remove('hidden');
     } else {
+        bgMusic.play();
         pauseScreen.classList.add('hidden');
-        requestAnimationFrame((t) => {
-            lastTime = t; bgMusic.play(); requestAnimationFrame(update);
-        });
+        lastTime = performance.now(); requestAnimationFrame(update);
     }
 }
 
 function quitGame() {
-    isPaused = false; isPlaying = false;
-    
+    isPaused = false; isPlaying = false; 
+    bgMusic.pause();
     arcadeRoom.classList.remove('game-running');
     pauseScreen.classList.add('hidden');
     startScreen.classList.remove('hidden');
-    
     gameContainer.classList.remove('danger-state');
     arcadeCabinet.style.transform = ''; 
-    arcadeCabinet.classList.remove('slow-mo-active');
+    arcadeCabinet.style.webkitTransform = ''; 
     gameContainer.style.backgroundColor = '#000';
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    bgMusic.loop = true;
-    bgMusic.play().catch(console.error);
+    isSplashActive = true;
+    arcadeRoom.classList.add('zoomed-in-view');
+    fitArcade();
 }
 
 function handleInput(e) {
     if (isSplashActive) {
         if (e.key === 'Enter') {
+            initAudio();
             isSplashActive = false;
-            
             introScreen.classList.add('hidden');
             startScreen.classList.remove('hidden');
+            
             arcadeRoom.classList.remove('zoomed-in-view');
-            
-            initAudio(); 
-            
-            const startFadeInMenu = () => {
-                playMenuSelectSound();
-                currentSongIndex = Math.floor(Math.random() * playlist.length);
-                updateSongDisplays();
-                
-                bgMusic.src = playlist[currentSongIndex].src;
-                masterGain.gain.value = 0; 
-                bgMusic.loop = true;
-                
-                bgMusic.play().then(() => {
-                    let fadeVol = 0;
-                    let fadeInInterval = setInterval(() => {
-                        fadeVol += 0.02; 
-                        if (fadeVol >= 0.4) {
-                            masterGain.gain.value = 0.4; 
-                            clearInterval(fadeInInterval);
-                        } else {
-                            masterGain.gain.value = fadeVol;
-                        }
-                    }, 100);
-                }).catch(console.error);
-            };
-
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume().then(startFadeInMenu);
-            } else {
-                startFadeInMenu();
-            }
+            fitArcade();
+            playMenuSelectSound();
+            startMenuMusic();
         }
         return; 
     }
@@ -463,43 +403,28 @@ function handleInput(e) {
             initAudio(); playMenuSelectSound();
             currentSongIndex = (currentSongIndex - 1 + playlist.length) % playlist.length;
             updateSongDisplays();
-            bgMusic.src = playlist[currentSongIndex].src;
-            bgMusic.play().catch(console.error);
+            startMenuMusic();
             return;
         }
         if (e.key === 'ArrowRight') {
             initAudio(); playMenuSelectSound();
             currentSongIndex = (currentSongIndex + 1) % playlist.length;
             updateSongDisplays();
-            bgMusic.src = playlist[currentSongIndex].src;
-            bgMusic.play().catch(console.error);
+            startMenuMusic();
             return;
         }
-        if (e.key === 'Enter') {
-            startGame();
-            return;
-        }
+        if (e.key === 'Enter') { startGame(); return; }
     }
 
-    if (e.key === 'Escape') {
-        if (isPlaying) togglePause();
-        return;
-    }
+    if (e.key === 'Escape') { if (isPlaying) togglePause(); return; }
 
     if (isPaused) {
         if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-            pauseSelectedIndex = 0;
-            playMenuSelectSound();
-            updatePauseMenuUI();
-            e.preventDefault();
+            pauseSelectedIndex = 0; playMenuSelectSound(); updatePauseMenuUI(); e.preventDefault();
         } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-            pauseSelectedIndex = 1;
-            playMenuSelectSound();
-            updatePauseMenuUI();
-            e.preventDefault();
+            pauseSelectedIndex = 1; playMenuSelectSound(); updatePauseMenuUI(); e.preventDefault();
         } else if (e.key === 'Enter') {
-            if (pauseSelectedIndex === 0) togglePause();
-            else quitGame();
+            if (pauseSelectedIndex === 0) togglePause(); else quitGame();
         }
         return;
     }
@@ -507,6 +432,8 @@ function handleInput(e) {
     if (!isPlaying) return;
 
     const key = e.key.toUpperCase();
+    animateHardwareDeck(key);
+
     let targetIndex = -1; let maxY = -100;
     for (let i = 0; i < activeLetters.length; i++) {
         if (activeLetters[i].char === key && activeLetters[i].y > maxY) {
@@ -520,12 +447,22 @@ function handleInput(e) {
         
         if (letter.type === 'normal') playHitSound(); else triggerPowerUp(letter);
         
-        arcadeShakeIntensity = Math.max(arcadeShakeIntensity, 15); 
+        arcadeShakeIntensity = Math.max(arcadeShakeIntensity, 25); 
         comboCount++;
         
+        const judgement = (letter.y > canvas.height * 0.75) ? "PERFECT!" : "GREAT!";
+        floatingTexts.push({
+            text: judgement,
+            x: letter.x,
+            y: letter.y - 30,
+            life: 0.8,
+            size: 14,
+            color: (judgement === "PERFECT!") ? '#ffe600' : '#00f3ff'
+        });
+
         if (comboCount > 0 && comboCount % 6 === 0) {
             comboMultiplier++;
-            arcadeShakeIntensity = Math.max(arcadeShakeIntensity, 50); 
+            arcadeShakeIntensity = Math.max(arcadeShakeIntensity, 45); 
             arcadeCabinet.classList.add('flash-combo');
             setTimeout(() => arcadeCabinet.classList.remove('flash-combo'), 150);
             
@@ -534,10 +471,9 @@ function handleInput(e) {
             floatingTexts.push({
                 text: shredPhrases[phraseIndex] + " x" + comboMultiplier,
                 x: canvas.width / 2, y: canvas.height / 2 + (Math.random() - 0.5) * 50,
-                life: 1.5, size: 40, color: currentColor
+                life: 1.5, size: 36, color: currentColor
             });
         }
-        createExplosion(letter.x, letter.y, letter.color);
         
         if (letter.type === 'normal') {
             score += 10 * comboMultiplier;
@@ -566,76 +502,77 @@ function updateUI() {
 
 function loseLife() {
     lives--; comboCount = 0; comboMultiplier = 1;
-    arcadeShakeIntensity = 60; playDamageSound();
-    
+    arcadeShakeIntensity = 45; playDamageSound();
     gameContainer.classList.add('damage-flicker');
     setTimeout(() => gameContainer.classList.remove('damage-flicker'), 400);
-    
     updateUI();
-    
-    if (lives <= 0) {
-        gameOver();
-    } else {
-        slowMoTimer = 2.0; 
-        playSlowMoSound();
-    }
+    if (lives <= 0) gameOver();
+    else { slowMoTimer = 2.0; playSlowMoSound(); }
 }
 
 function gameOver() {
-    isPlaying = false; finalScoreEl.innerText = score;
+    isPlaying = false;
+    bgMusic.pause();
+    finalScoreEl.innerText = score;
     gameContainer.classList.remove('danger-state'); 
     gameOverScreen.classList.remove('hidden');
-    
-    bgMusic.pause();
-    bgMusic.currentTime = 0;
-    bgMusic.loop = false;
-    
     arcadeRoom.classList.remove('game-running');
     arcadeCabinet.style.transform = '';
-    arcadeCabinet.classList.remove('slow-mo-active');
-    
+    arcadeCabinet.style.webkitTransform = '';
     gameContainer.style.backgroundColor = '#600000';
     gameContainer.style.borderColor = '#ff0000';
     gameContainer.style.boxShadow = '0 0 40px #ff0000 inset, 0 0 60px #ff0000';
-    
-    playTone(100, 'sawtooth', audioCtx.currentTime, 0.8, 0.5, 10); 
-    playNoise(audioCtx.currentTime, 0.8, 0.5);
+    playTone(100, 'sawtooth', audioCtx ? audioCtx.currentTime : 0, 0.8, 0.5, 10); 
+    playNoise(audioCtx ? audioCtx.currentTime : 0, 0.8, 0.5);
 }
 
 function update(time) {
     if (!isPlaying || isPaused) return;
-    const dt = (time - lastTime) / 1000; lastTime = time;
+    const dt = Math.min((time - lastTime) / 1000, 0.1); 
+    lastTime = time;
 
     if (score >= 2000 && currentRound === 1) {
-        currentRound = 2; targetPlaybackRate = 1.05; targetFallSpeed += 30;
-        floatingTexts.push({ text: "ROUND 2: SPEED UP", x: canvas.width/2, y: canvas.height/2, life: 2.5, size: 40, color: '#ff0055' }); updateUI();
+        currentRound = 2; targetFallSpeed += 30;
+        floatingTexts.push({ text: "ROUND 2: SPEED UP", x: canvas.width/2, y: canvas.height/2, life: 2.5, size: 36, color: '#ff0055' }); updateUI();
     } else if (score >= 4000 && currentRound === 2) {
-        currentRound = 3; targetPlaybackRate = 1.10; targetFallSpeed += 30;
-        floatingTexts.push({ text: "ROUND 3: MAXIMUM OVERKILL", x: canvas.width/2, y: canvas.height/2, life: 2.5, size: 40, color: '#ff0000' }); updateUI();
+        currentRound = 3; targetFallSpeed += 30;
+        floatingTexts.push({ text: "ROUND 3: MAXIMUM OVERKILL", x: canvas.width/2, y: canvas.height/2, life: 2.5, size: 36, color: '#ff0000' }); updateUI();
     }
 
     if (slowMoTimer > 0) {
-        slowMoTimer -= dt; currentFallSpeed = targetFallSpeed * 0.4; bgMusic.playbackRate = 0.6; 
-        arcadeCabinet.classList.add('slow-mo-active');
-        if (slowMoTimer <= 0) { 
-            currentFallSpeed = targetFallSpeed; bgMusic.playbackRate = targetPlaybackRate; 
-            arcadeCabinet.classList.remove('slow-mo-active');
-        }
+        slowMoTimer -= dt;
+        arcadeCabinet.classList.add('flash-slow');
+        // Slide speed down gradually
+        currentPlaybackRate += (0.4 - currentPlaybackRate) * dt * 4.0; 
+        currentFallSpeed += ((targetFallSpeed * 0.4) - currentFallSpeed) * dt * 4.0;
     } else {
-        currentFallSpeed = targetFallSpeed; bgMusic.playbackRate = targetPlaybackRate;
-        arcadeCabinet.classList.remove('slow-mo-active');
+        arcadeCabinet.classList.remove('flash-slow');
+        // Instantly snap back when timer expires
+        currentPlaybackRate = targetPlaybackRate;
+        currentFallSpeed = targetFallSpeed;
+    }
+    bgMusic.playbackRate = Math.max(0.1, currentPlaybackRate);
+
+    // Screen Shake synchronized directly to music reaction
+    let currentShake = arcadeShakeIntensity;
+    if (isPlaying && slowMoTimer <= 0) {
+        if (window.musicReaction > 0.65) {
+            currentShake += (window.musicReaction - 0.6) * 60;
+        }
     }
 
-    if (arcadeShakeIntensity > 0.5) {
-        const dx = (Math.random() - 0.5) * arcadeShakeIntensity;
-        const dy = (Math.random() - 0.5) * arcadeShakeIntensity;
-        arcadeCabinet.style.transform = `translate3d(${dx}px, ${94 + dy}px, 1380px)`;
+    if (currentShake > 1.0) {
+        const dx = (Math.random() - 0.5) * currentShake;
+        const dy = (Math.random() - 0.5) * currentShake;
+        arcadeCabinet.style.transform = `translateZ(1180px) translate3d(${dx}px, ${135 + dy}px, 0px)`;
+        arcadeCabinet.style.webkitTransform = `translateZ(1180px) translate3d(${dx}px, ${135 + dy}px, 0px)`;
         arcadeShakeIntensity *= 0.85; 
     } else {
-        arcadeCabinet.style.transform = `translate3d(0px, 94px, 1380px)`;
+        arcadeCabinet.style.transform = `translateZ(1180px) translateY(135px)`;
+        arcadeCabinet.style.webkitTransform = `translateZ(1180px) translateY(135px)`;
     }
 
-    if (bgMusic.currentTime >= nextSpawnTime && bgMusic.currentTime > 0) {
+    if (bgMusic.currentTime >= nextSpawnTime) {
         spawnLetter();
         let activeInterval = beatInterval * 2; 
         if (currentRound === 2) activeInterval = beatInterval * 1.5; 
@@ -645,110 +582,94 @@ function update(time) {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    if (comboMultiplier >= 3 && Math.random() > 0.85) {
-        ctx.fillStyle = comboColors[Math.floor(Math.random() * comboColors.length)];
-        ctx.globalAlpha = 0.15; ctx.fillRect(0, Math.random() * canvas.height, canvas.width, Math.random() * 80);
-        ctx.globalAlpha = 1.0;
-    }
-    
-    for (let i = particles.length - 1; i >= 0; i--) {
-        let p = particles[i]; p.vy += 1800 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt * 2.5; 
-        if (p.life <= 0) particles.splice(i, 1);
-        else { ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, p.size, p.size); }
-    }
-    ctx.globalAlpha = 1.0;
-
     for (let i = floatingTexts.length - 1; i >= 0; i--) {
         let ft = floatingTexts[i]; ft.y -= dt * 60; ft.life -= dt * 1.5;
         if (ft.life <= 0) floatingTexts.splice(i, 1);
         else {
-            ctx.globalAlpha = Math.min(1.0, ft.life); ctx.fillStyle = ft.color;
-            ctx.font = ft.size + 'px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.fillText(ft.text, ft.x, ft.y);
+            ctx.save();
+            ctx.globalAlpha = Math.min(1.0, ft.life);
+            ctx.fillStyle = ft.color;
+            ctx.shadowColor = ft.color;
+            ctx.shadowBlur = 10;
+            ctx.font = `${ft.size}px "Press Start 2P", monospace`;
+            ctx.textAlign = 'center';
+            ctx.fillText(ft.text, ft.x, ft.y);
+            ctx.restore();
         }
     }
-    ctx.globalAlpha = 1.0;
 
-    ctx.font = '24px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = 'bold 22px "Press Start 2P", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
     for (let i = activeLetters.length - 1; i >= 0; i--) {
         let l = activeLetters[i]; l.y += currentFallSpeed * dt;
         let drawX = l.x; if (currentFallSpeed > 400 && slowMoTimer <= 0) drawX += (Math.random() - 0.5) * 6; 
         
+        ctx.save();
+        ctx.shadowColor = l.color;
+        ctx.shadowBlur = (l.type !== 'normal') ? 24 : 14;
         ctx.fillStyle = l.color;
-        if (l.type !== 'normal') { ctx.shadowBlur = 15; ctx.shadowColor = l.color; } else { ctx.shadowBlur = 0; }
-        if (l.type === 'nuke') ctx.fillText(`[ ${l.char} ]`, drawX, l.y);
-        else if (l.type === '1up') ctx.fillText(`+ ${l.char} +`, drawX, l.y);
-        else if (l.type === 'slow') ctx.fillText(`~ ${l.char} ~`, drawX, l.y);
-        else ctx.fillText(l.char, drawX, l.y);
-        ctx.shadowBlur = 0; 
+
+        let glyph = l.char;
+        if (l.type === 'nuke') glyph = `[ ${l.char} ]`;
+        else if (l.type === '1up') glyph = `♥ ${l.char} ♥`;
+        else if (l.type === 'slow') glyph = `~ ${l.char} ~`;
+
+        ctx.fillText(glyph, drawX, l.y);
         
-        if (l.y > canvas.height + 20) { activeLetters.splice(i, 1); loseLife(); if (lives <= 0) return; }
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(glyph, drawX, l.y);
+        ctx.restore();
+        
+        if (l.y > canvas.height + 20) { 
+            floatingTexts.push({ text: "MISS", x: l.x, y: canvas.height - 30, life: 0.8, size: 16, color: '#ff0033' });
+            activeLetters.splice(i, 1); 
+            loseLife(); 
+            if (lives <= 0) return; 
+        }
     }
     requestAnimationFrame(update);
 }
 
 function startGame() {
-    initAudio();
-    playCoinSound();
-    
-    currentSong = playlist[currentSongIndex];
+    initAudio(); playCoinSound();
+    const currentSong = playlist[currentSongIndex];
     trackEl.innerText = currentSong.title;
 
-    let fadeVol = masterGain.gain.value;
-    let fadeAudioInterval = setInterval(() => {
-        if (fadeVol > 0.05) {
-            fadeVol -= 0.05;
-            masterGain.gain.value = Math.max(fadeVol, 0); 
-        } else {
-            masterGain.gain.value = 0;
-            clearInterval(fadeAudioInterval);
-            bgMusic.pause();
-        }
-    }, 100);
-
     arcadeRoom.classList.add('game-running');
-    
     gameContainer.style.backgroundColor = '#000'; 
     gameContainer.style.borderColor = '#fff';
     gameContainer.style.boxShadow = '0 0 20px #fff';
 
-    activeLetters = []; particles = []; floatingTexts = [];
+    bgMusic.pause();
+    bgMusic.src = playlist[currentSongIndex].src;
+    bgMusic.loop = false;
+    bgMusic.currentTime = 0;
+
+    activeLetters = []; floatingTexts = [];
     score = 0; currentRound = 1; comboCount = 0; comboMultiplier = 1; lives = 3;
-    
-    arcadeShakeIntensity = 0; slowMoTimer = 0; targetPlaybackRate = 1.0; bgMusic.playbackRate = 1.0;
-    targetFallSpeed = 200; currentFallSpeed = 200; beatInterval = 60 / currentSong.bpm; 
-    
+    lettersSpawnedCount = 0; powerUpCooldown = 0;
+    arcadeShakeIntensity = 0; slowMoTimer = 0;
+    targetFallSpeed = 200; currentFallSpeed = 200; 
+    targetPlaybackRate = 1.0; currentPlaybackRate = 1.0;
+    beatInterval = 60 / currentSong.bpm; 
+    nextSpawnTime = 0.5;
+
     startScreen.classList.add('hidden'); 
     gameOverScreen.classList.add('hidden');
     pauseScreen.classList.add('hidden');
     
+    // Safety delay to let the transition finish before starting drops
     setTimeout(() => {
-        bgMusic.src = currentSong.src;
-        bgMusic.currentTime = 0;
-        masterGain.gain.value = 1.0; 
-        bgMusic.loop = false;
-        nextSpawnTime = 0.1;
-        
-        bgMusic.play().then(() => {
-            isPlaying = true; 
-            isPaused = false; 
-            updateUI();
-            arcadeCabinet.classList.remove('slow-mo-active');
-            lastTime = performance.now();
-            requestAnimationFrame(update);
-        }).catch(e => {
-            console.error("Audio playback failed:", e);
-            alert(`AUDIO ERROR: Could not load "${currentSong.src}".\n\nEnsure audio files are present.`);
-            startScreen.classList.remove('hidden'); isPlaying = false;
-            arcadeRoom.classList.remove('game-running');
-        });
-    }, 2200); 
+        bgMusic.play().catch(e => console.warn(e));
+        isPlaying = true; isPaused = false;
+        updateUI();
+        lastTime = performance.now();
+        requestAnimationFrame(update);
+    }, 1800);
 }
-
-window.addEventListener('load', () => {
-    window.addEventListener('click', () => {
-        initAudio();
-    }, { once: true });
-});
 
 document.getElementById('start-btn').addEventListener('click', startGame);
 document.getElementById('restart-btn').addEventListener('click', startGame);
