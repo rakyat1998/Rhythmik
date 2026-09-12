@@ -2,12 +2,12 @@
 // 1. FIREBASE WEBRTC SIGNALING ONLY
 // ==========================================
 const firebaseConfig = {
-    apiKey: "AIzaSyDHmyoBemXQFOxXsVmwFc5l4LHWKhZHtlI",
-    authDomain: "teamrhythmik.firebaseapp.com",
-    projectId: "teamrhythmik",
-    storageBucket: "teamrhythmik.firebasestorage.app",
-    messagingSenderId: "861227698308",
-    appId: "1:861227698308:web:a9f8802b0565aa7b7f9ad1"
+  apiKey: "AIzaSyDHmyoBemXQFOxXsVmwFc5l4LHWKhZHtlI",
+  authDomain: "teamrhythmik.firebaseapp.com",
+  projectId: "teamrhythmik",
+  storageBucket: "teamrhythmik.firebasestorage.app",
+  messagingSenderId: "861227698308",
+  appId: "1:861227698308:web:a9f8802b0565aa7b7f9ad1"
 };
 
 if (typeof firebase !== 'undefined' && firebase.apps && !firebase.apps.length) {
@@ -48,7 +48,6 @@ let isSplashActive = true;
 let isPlaying = false;
 let isPaused = false;
 
-// Hardware flash registers
 let leftCabFlash = 0;
 let rightCabFlash = 0;
 
@@ -70,7 +69,7 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const gameContainer = document.getElementById('game-container');
 const arcadeRoom = document.getElementById('arcade-room');
-const arcadeCabinet = document.getElementById('arcade-cabinet');
+const arcadeCabinet = document.getElementById('arcade-cabinet'); 
 
 const introScreen = document.getElementById('intro-screen');
 const aliasScreen = document.getElementById('alias-screen');
@@ -93,12 +92,12 @@ const finalScoreEl = document.getElementById('final-score');
 const earnedCoinsEl = document.getElementById('earned-coins');
 const highScoreAlertEl = document.getElementById('high-score-alert');
 
-let uiState = 'SPLASH';
-let lobbySelect = 0;
-let mpModeSelect = 0;
-let mpJoinSelect = 0;
-let pauseSelect = 0;
-let machinePower = 0;
+let uiState = 'SPLASH'; 
+let lobbySelect = 0; 
+let mpModeSelect = 0; 
+let mpJoinSelect = 0; 
+let pauseSelect = 0; 
+let machinePower = 0; 
 let targetMachinePower = 0;
 
 if (document.getElementById('lobby-coins')) document.getElementById('lobby-coins').innerText = userData.coins;
@@ -116,15 +115,16 @@ const playlist = [
 let currentSongIndex = 0;
 let bgMusic = new Audio();
 bgMusic.crossOrigin = "anonymous";
-bgMusic.preservesPitch = false;
+bgMusic.preservesPitch = false; 
 
 let audioCtx, analyser, dataArray, masterGain;
 let audioUnlocked = false;
 let activeLetters = [];
+let activeWord = null; // New active Boss Word tracker
 let floatingTexts = [];
 let particles = [];
 
-let gameMode = 'solo';
+let gameMode = 'solo'; 
 let score = 0;
 let sessionCoins = 0;
 let currentRound = 1;
@@ -135,9 +135,9 @@ const MAX_LIVES = 5;
 
 let nextSpawnTime = 0;
 let beatInterval = 0;
-let targetPlaybackRate = 1.0;
+let targetPlaybackRate = 1.0; 
 let currentPlaybackRate = 1.0;
-let targetFallSpeed = 200;
+let targetFallSpeed = 200; 
 let currentFallSpeed = 200;
 let lastTime = 0;
 let songTime = 0;
@@ -154,9 +154,9 @@ const bgCtx = bgCanvas.getContext('2d');
 const leftCab = document.querySelector('.left-cabinet');
 const rightCab = document.querySelector('.right-cabinet');
 
-function resizeBackground() {
-    bgCanvas.width = window.innerWidth;
-    bgCanvas.height = window.innerHeight;
+function resizeBackground() { 
+    bgCanvas.width = window.innerWidth; 
+    bgCanvas.height = window.innerHeight; 
 }
 window.addEventListener('resize', resizeBackground);
 resizeBackground();
@@ -168,12 +168,12 @@ function initAudio() {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (!masterGain) {
         analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 128;
-        masterGain = audioCtx.createGain();
+        analyser.fftSize = 128; 
+        masterGain = audioCtx.createGain(); 
         const audioSource = audioCtx.createMediaElementSource(bgMusic);
-        audioSource.connect(analyser);
-        analyser.connect(masterGain);
-        masterGain.connect(audioCtx.destination);
+        audioSource.connect(analyser); 
+        analyser.connect(masterGain);  
+        masterGain.connect(audioCtx.destination); 
         dataArray = new Uint8Array(analyser.frequencyBinCount);
         drawBackground();
     }
@@ -194,29 +194,29 @@ window.addEventListener('keydown', unlockAudio, { once: true });
 function startMenuMusic(fadeIn = false) {
     if (!audioUnlocked || isPlaying) return;
     clearInterval(menuFadeInterval);
-
+    
     const track = playlist[currentSongIndex];
     bgMusic.src = track.src;
     bgMusic.loop = true;
-    currentPlaybackRate = 1.0;
+    currentPlaybackRate = 1.0; 
     bgMusic.playbackRate = 1.0;
-
+    
     if (fadeIn && masterGain) {
         masterGain.gain.value = 0;
         bgMusic.play().catch(() => {
             if (track.fallbackSrc) {
                 bgMusic.src = track.fallbackSrc;
-                bgMusic.play().catch(() => { });
+                bgMusic.play().catch(() => {});
             }
         });
         let fadeVol = 0;
         menuFadeInterval = setInterval(() => {
             fadeVol += 0.02;
-            if (fadeVol >= 0.4) {
-                masterGain.gain.value = 0.4;
-                clearInterval(menuFadeInterval);
-            } else {
-                masterGain.gain.value = fadeVol;
+            if (fadeVol >= 0.4) { 
+                masterGain.gain.value = 0.4; 
+                clearInterval(menuFadeInterval); 
+            } else { 
+                masterGain.gain.value = fadeVol; 
             }
         }, 100);
     } else {
@@ -224,7 +224,7 @@ function startMenuMusic(fadeIn = false) {
         bgMusic.play().catch(() => {
             if (track.fallbackSrc) {
                 bgMusic.src = track.fallbackSrc;
-                bgMusic.play().catch(() => { });
+                bgMusic.play().catch(() => {});
             }
         });
     }
@@ -233,27 +233,27 @@ function startMenuMusic(fadeIn = false) {
 function drawBackground() {
     requestAnimationFrame(drawBackground);
     if (!analyser) return;
-
+    
     machinePower += (targetMachinePower - machinePower) * 0.05;
 
     analyser.getByteFrequencyData(dataArray);
-    let bassSum = 0;
-    let bassCount = Math.floor(dataArray.length / 4);
+    let bassSum = 0; 
+    let bassCount = Math.floor(dataArray.length / 4); 
     for (let i = 0; i < bassCount; i++) bassSum += dataArray[i];
     const reaction = (bassCount > 0 ? (bassSum / bassCount) : 0) / 255;
-
+    
     window.musicReaction = reaction;
     window.musicHue = ((bassSum / bassCount) * 1.5) % 360;
 
     bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
-    const cx = bgCanvas.width / 2;
-    const cy = bgCanvas.height / 2;
-
+    const cx = bgCanvas.width / 2; 
+    const cy = bgCanvas.height / 2; 
+    
     if (uiState !== 'PLAYING' && uiState !== 'PAUSED' && uiState !== 'GAMEOVER' && uiState !== 'SPLASH') {
         const grad = bgCtx.createRadialGradient(cx, cy, 0, cx, cy, reaction * (cx * 1.2) + 150);
-        grad.addColorStop(0, `hsla(${window.musicHue}, 90%, 50%, ${(0.1 + reaction * 0.2) * machinePower})`);
+        grad.addColorStop(0, `hsla(${window.musicHue}, 90%, 50%, ${(0.1 + reaction * 0.2) * machinePower})`); 
         grad.addColorStop(1, `transparent`);
-        bgCtx.fillStyle = grad;
+        bgCtx.fillStyle = grad; 
         bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
 
         const barWidth = Math.ceil(bgCanvas.width / dataArray.length) * 2;
@@ -261,25 +261,25 @@ function drawBackground() {
             const heightPct = dataArray[i] / 255;
             const barHeight = heightPct * bgCanvas.height * 1.2 * machinePower;
             let barGrad = bgCtx.createLinearGradient(0, bgCanvas.height, 0, bgCanvas.height - barHeight);
-            barGrad.addColorStop(0, `hsla(${(window.musicHue + i * 3) % 360}, 100%, 20%, ${0.8 * machinePower})`);
-            barGrad.addColorStop(1, `hsla(${(window.musicHue + i * 3) % 360}, 100%, 60%, ${0.8 * machinePower})`);
+            barGrad.addColorStop(0, `hsla(${(window.musicHue + i*3) % 360}, 100%, 20%, ${0.8 * machinePower})`);
+            barGrad.addColorStop(1, `hsla(${(window.musicHue + i*3) % 360}, 100%, 60%, ${0.8 * machinePower})`);
             bgCtx.fillStyle = barGrad;
             bgCtx.fillRect(i * barWidth, bgCanvas.height - barHeight, barWidth + 1, barHeight);
         }
     } else {
         const grad = bgCtx.createRadialGradient(cx, cy, 0, cx, cy, reaction * (cx * 1.2) + 150);
-        grad.addColorStop(0, `hsla(${window.musicHue}, 90%, 50%, ${(0.05 + reaction * 0.1) * machinePower})`);
+        grad.addColorStop(0, `hsla(${window.musicHue}, 90%, 50%, ${(0.05 + reaction * 0.1) * machinePower})`); 
         grad.addColorStop(1, `transparent`);
-        bgCtx.fillStyle = grad;
+        bgCtx.fillStyle = grad; 
         bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
     }
 
-    let dynBright = 0.1 + (0.55 + reaction * 0.5) * machinePower;
+    let dynBright = 0.1 + (0.55 + reaction * 0.5) * machinePower; 
     let gray = 1 - machinePower;
 
     leftCabFlash = Math.max(0, leftCabFlash - 0.05);
     rightCabFlash = Math.max(0, rightCabFlash - 0.05);
-
+    
     let dynBrightLeft = dynBright + leftCabFlash;
     let dynBrightRight = dynBright + rightCabFlash;
 
@@ -295,11 +295,11 @@ function drawBackground() {
     if (arcadeCabinet) {
         const parts = arcadeCabinet.querySelectorAll('.chameleon-part');
         if (slowMoTimer <= 0) {
-            parts.forEach(p => {
+            parts.forEach(p => { 
                 if (!p.classList.contains('flash-nuke') && !p.classList.contains('flash-1up') && !p.classList.contains('flash-combo') && !p.classList.contains('flash-skull')) {
-                    p.style.animation = 'none';
+                    p.style.animation = 'none'; 
                     if (uiState === 'PLAYING') p.style.filter = `hue-rotate(${window.musicHue}deg) brightness(${1 + reaction * 0.5})`;
-                    else p.style.filter = `grayscale(${gray}) hue-rotate(${window.musicHue}deg) brightness(${dynBright}) contrast(1.2)`;
+                    else p.style.filter = `grayscale(${gray}) hue-rotate(${window.musicHue}deg) brightness(${dynBright}) contrast(1.2)`; 
                 }
             });
             if (uiState === 'PLAYING') {
@@ -315,26 +315,26 @@ function playMenuSelectSound() { if (audioCtx) playTone(600, 'square', audioCtx.
 function playCoinSound() { if (audioCtx) { playTone(987.77, 'square', audioCtx.currentTime, 0.08, 0.3); playTone(1318.51, 'square', audioCtx.currentTime + 0.08, 0.4, 0.3); } }
 function playTone(f, type, t, dur, vol, dFreq = null) {
     if (!audioCtx) return;
-    const osc = audioCtx.createOscillator();
+    const osc = audioCtx.createOscillator(); 
     const gain = audioCtx.createGain();
-    osc.type = type;
+    osc.type = type; 
     osc.frequency.setValueAtTime(f, t);
     if (dFreq) osc.frequency.exponentialRampToValueAtTime(dFreq, t + dur);
-    gain.gain.setValueAtTime(vol, t);
+    gain.gain.setValueAtTime(vol, t); 
     gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start(t);
+    osc.connect(gain); 
+    gain.connect(audioCtx.destination); 
+    osc.start(t); 
     osc.stop(t + dur);
 }
 function playHitSound() {
-    if (!audioCtx) return;
-    const t = audioCtx.currentTime;
-    playTone(1200, 'square', t, 0.05, 0.15, 800);
+    if (!audioCtx) return; 
+    const t = audioCtx.currentTime; 
+    playTone(1200, 'square', t, 0.05, 0.15, 800); 
 }
 function play1UPSound() { if (audioCtx) { playTone(523.25, 'square', audioCtx.currentTime, 0.1, 0.3); playTone(659.25, 'square', audioCtx.currentTime + 0.1, 0.1, 0.3); playTone(783.99, 'square', audioCtx.currentTime + 0.2, 0.3, 0.3); } }
 function playNukeSound() {
-    if (!audioCtx) return;
+    if (!audioCtx) return; 
     const t = audioCtx.currentTime;
     playTone(440, 'sine', t, 0.4, 0.2, 880); playTone(554.37, 'sine', t + 0.1, 0.4, 0.2, 1108.73);
     playTone(220, 'triangle', t, 1.0, 0.2, 110);
@@ -352,7 +352,7 @@ function animateHardwareDeck(char) {
     }
     if (centerButtons.length > 0) {
         const btn = centerButtons[Math.floor(Math.random() * centerButtons.length)];
-        btn.style.transform = 'translateY(6px)';
+        btn.style.transform = 'translateY(6px)'; 
         btn.style.filter = 'brightness(2.2)';
         setTimeout(() => { btn.style.transform = ''; btn.style.filter = ''; }, 90);
     }
@@ -373,8 +373,8 @@ if (btnContinue) {
         lobbyScreen.classList.remove('hidden');
         uiState = 'LOBBY_MODE';
         targetMachinePower = 1.0;
-        updateLobbyUI();
-        updateSongDisplays();
+        updateLobbyUI(); 
+        updateSongDisplays(); 
         startMenuMusic(true);
     });
 }
@@ -421,7 +421,7 @@ function updateSongDisplays() {
     const len = playlist.length;
     const prevIndex = (currentSongIndex - 1 + len) % len;
     const nextIndex = (currentSongIndex + 1) % len;
-
+    
     const leftTitle = document.getElementById('left-screen-title');
     const rightTitle = document.getElementById('right-screen-title');
     const centerTitle = document.getElementById('center-song-title');
@@ -431,7 +431,7 @@ function updateSongDisplays() {
 
     const costDisplay = document.getElementById('song-cost-display');
     const startBtn = document.getElementById('start-btn');
-
+    
     if (userData.unlockedSongs.includes(currentSongIndex)) {
         if (costDisplay) costDisplay.classList.add('hidden');
         if (startBtn) {
@@ -452,22 +452,22 @@ function updateSongDisplays() {
 
 function cycleTrack(direction) {
     playMenuSelectSound();
-
-    if (arcadeRoom) {
+    
+    if(arcadeRoom) {
         arcadeRoom.classList.remove('shift-left', 'shift-right');
-        void arcadeRoom.offsetWidth;
+        void arcadeRoom.offsetWidth; 
     }
-
+    
     if (direction === -1) {
         currentSongIndex = (currentSongIndex - 1 + playlist.length) % playlist.length;
-        if (arcadeRoom) arcadeRoom.classList.add('shift-left');
+        if(arcadeRoom) arcadeRoom.classList.add('shift-left');
         leftCabFlash = 1.0;
     } else {
         currentSongIndex = (currentSongIndex + 1) % playlist.length;
-        if (arcadeRoom) arcadeRoom.classList.add('shift-right');
+        if(arcadeRoom) arcadeRoom.classList.add('shift-right');
         rightCabFlash = 1.0;
     }
-
+    
     updateSongDisplays();
     startMenuMusic();
 }
@@ -483,96 +483,116 @@ window.addEventListener('keydown', (e) => {
                 if (jBtn) jBtn.click();
             }
         }
-        return;
+        return; 
     }
 
     if (uiState === 'PLAYING') {
         if (e.key === 'Escape') { togglePause(); return; }
         const key = e.key.toUpperCase();
-        let targetIndex = -1;
-        let maxY = -100;
-
         animateHardwareDeck(key);
 
+        // --- Check Active Boss Word First ---
+        if (activeWord) {
+            if (key === activeWord.text[activeWord.progress]) {
+                activeWord.progress++;
+                playHitSound();
+                arcadeShakeIntensity = Math.max(arcadeShakeIntensity, 20);
+
+                if (activeWord.progress >= activeWord.text.length) {
+                    // Word completed successfully!
+                    score += 50 * comboMultiplier;
+                    sessionCoins += 10; // Extra reward coins for completing word
+                    floatingTexts.push({ text: "WORD CLEARED! +10 COINS", x: activeWord.x, y: activeWord.y, life: 1.5, size: 16, color: '#ffaa00' });
+                    createExplosion(activeWord.x, activeWord.y, '#00ffcc', 1.5);
+                    activeWord = null;
+                }
+            }
+            return; // Block regular letter matching while a word is active
+        }
+
+        // --- Regular Letter Matching ---
+        let targetIndex = -1; 
+        let maxY = -100;
+        
         for (let i = 0; i < activeLetters.length; i++) {
-            if (activeLetters[i].char === key && activeLetters[i].y > maxY) {
-                maxY = activeLetters[i].y;
-                targetIndex = i;
+            if (activeLetters[i].char === key && activeLetters[i].y > maxY) { 
+                maxY = activeLetters[i].y; 
+                targetIndex = i; 
             }
         }
 
         if (targetIndex !== -1) {
             const letter = activeLetters[targetIndex];
             activeLetters.splice(targetIndex, 1);
-            if (letter.type === 'normal') playHitSound();
+            if (letter.type === 'normal') playHitSound(); 
             else triggerPowerUp(letter);
-
-            arcadeShakeIntensity = Math.max(arcadeShakeIntensity, 35);
-            comboCount++;
+            
+            arcadeShakeIntensity = Math.max(arcadeShakeIntensity, 35); 
+            comboCount++; 
             if (comboCount > 0 && comboCount % 6 === 0) comboMultiplier++;
-
+            
             if (letter.type === 'normal') {
                 score += 10 * comboMultiplier;
                 sessionCoins += 1;
                 floatingTexts.push({ text: "+1 COIN", x: letter.x, y: letter.y + 20, life: 1.0, size: 10, color: '#ffaa00' });
                 floatingTexts.push({ text: "+" + (10 * comboMultiplier), x: letter.x, y: letter.y, life: 1.0, size: 16, color: '#fff' });
             }
-            targetFallSpeed = Math.min(800, targetFallSpeed + 2);
+            targetFallSpeed = Math.min(800, targetFallSpeed + 2); 
             updateUI();
         }
         return;
     }
 
-    switch (uiState) {
+    switch(uiState) {
         case 'SPLASH':
             if (e.key === 'Enter') {
-                unlockAudio();
-                introScreen.classList.add('hidden');
-                arcadeRoom.classList.remove('zoomed-in-view');
-                isSplashActive = false;
+                unlockAudio(); 
+                introScreen.classList.add('hidden'); 
+                arcadeRoom.classList.remove('zoomed-in-view'); 
+                isSplashActive = false; 
                 fitArcade();
-                uiState = 'ALIAS';
-                aliasScreen.classList.remove('hidden');
-                targetMachinePower = 0.0;
+                uiState = 'ALIAS'; 
+                aliasScreen.classList.remove('hidden'); 
+                targetMachinePower = 0.0; 
                 const aliasInput = document.getElementById('player-alias');
                 if (aliasInput) aliasInput.focus();
             }
             break;
 
         case 'ALIAS':
-            if (e.key === 'Enter' && btnContinue) {
-                playMenuSelectSound();
-                btnContinue.click();
+            if (e.key === 'Enter' && btnContinue) { 
+                playMenuSelectSound(); 
+                btnContinue.click(); 
             }
             break;
 
         case 'LOBBY_MODE':
-            if (e.key === 'ArrowUp') {
-                lobbySelect = (lobbySelect - 1 + 3) % 3;
-                playMenuSelectSound();
-                updateLobbyUI();
-            } else if (e.key === 'ArrowDown') {
-                lobbySelect = (lobbySelect + 1) % 3;
-                playMenuSelectSound();
-                updateLobbyUI();
+            if (e.key === 'ArrowUp') { 
+                lobbySelect = (lobbySelect - 1 + 3) % 3; 
+                playMenuSelectSound(); 
+                updateLobbyUI(); 
+            } else if (e.key === 'ArrowDown') { 
+                lobbySelect = (lobbySelect + 1) % 3; 
+                playMenuSelectSound(); 
+                updateLobbyUI(); 
             } else if (e.key === 'Enter') {
                 playMenuSelectSound();
-                if (lobbySelect === 0) {
-                    uiState = 'START';
+                if (lobbySelect === 0) { 
+                    uiState = 'START'; 
                     gameMode = 'solo';
                     isHost = true;
-                    lobbyScreen.classList.add('hidden');
-                    startScreen.classList.remove('hidden');
-                    updateSongDisplays();
-                } else if (lobbySelect === 1) {
-                    uiState = 'PROFILE';
-                    lobbyScreen.classList.add('hidden');
-                    profileScreen.classList.remove('hidden');
+                    lobbyScreen.classList.add('hidden'); 
+                    startScreen.classList.remove('hidden'); 
+                    updateSongDisplays(); 
+                } else if (lobbySelect === 1) { 
+                    uiState = 'PROFILE'; 
+                    lobbyScreen.classList.add('hidden'); 
+                    profileScreen.classList.remove('hidden'); 
                     document.getElementById('prof-username').innerText = currentUsername;
                     document.getElementById('prof-highscore').innerText = userData.highScore;
                     document.getElementById('prof-coins').innerText = userData.coins;
                     document.getElementById('prof-unlocked').innerText = `${userData.unlockedSongs.length} / ${playlist.length}`;
-                } else if (lobbySelect === 2) {
+                } else if (lobbySelect === 2) { 
                     uiState = 'MULTIPLAYER';
                     lobbyScreen.classList.add('hidden');
                     multiplayerScreen.classList.remove('hidden');
@@ -581,12 +601,12 @@ window.addEventListener('keydown', (e) => {
                 }
             }
             break;
-
+            
         case 'PROFILE':
             if (e.key === 'Escape' || e.key === 'Enter') {
-                playMenuSelectSound();
-                profileScreen.classList.add('hidden');
-                lobbyScreen.classList.remove('hidden');
+                playMenuSelectSound(); 
+                profileScreen.classList.add('hidden'); 
+                lobbyScreen.classList.remove('hidden'); 
                 uiState = 'LOBBY_MODE';
             }
             break;
@@ -594,34 +614,34 @@ window.addEventListener('keydown', (e) => {
         case 'MULTIPLAYER':
             if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
                 mpModeSelect = mpModeSelect === 0 ? 1 : 0;
-                playMenuSelectSound();
+                playMenuSelectSound(); 
                 updateMpModeUI();
             } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                 mpJoinSelect = mpJoinSelect === 0 ? 1 : 0;
-                playMenuSelectSound();
+                playMenuSelectSound(); 
                 updateMpJoinUI();
             } else if (e.key === 'Enter') {
                 playMenuSelectSound();
-                if (mpJoinSelect === 0) createRoom();
+                if (mpJoinSelect === 0) createRoom(); 
                 else joinRoom();
             } else if (e.key === 'Escape') {
-                playMenuSelectSound();
-                multiplayerScreen.classList.add('hidden');
-                lobbyScreen.classList.remove('hidden');
+                playMenuSelectSound(); 
+                multiplayerScreen.classList.add('hidden'); 
+                lobbyScreen.classList.remove('hidden'); 
                 uiState = 'LOBBY_MODE';
             }
             break;
 
         case 'START':
-            if (e.key === 'ArrowLeft') {
+            if (e.key === 'ArrowLeft') { 
                 cycleTrack(-1);
-            } else if (e.key === 'ArrowRight') {
+            } else if (e.key === 'ArrowRight') { 
                 cycleTrack(1);
-            } else if (e.key === 'Enter') {
-                playMenuSelectSound();
+            } else if (e.key === 'Enter') { 
+                playMenuSelectSound(); 
                 if (userData.unlockedSongs.includes(currentSongIndex)) {
                     if (gameMode !== 'solo') broadcast({ type: 'START_GAME', songIndex: currentSongIndex });
-                    startGameSequence();
+                    startGameSequence(); 
                 } else {
                     const cost = playlist[currentSongIndex].cost;
                     if (userData.coins >= cost) {
@@ -630,41 +650,41 @@ window.addEventListener('keydown', (e) => {
                         saveLocalProfile();
                         play1UPSound();
                         updateSongDisplays();
-                        arcadeCabinet.classList.add('flash-1up');
+                        arcadeCabinet.classList.add('flash-1up'); 
                         setTimeout(() => arcadeCabinet.classList.remove('flash-1up'), 400);
                     } else {
                         playDamageSound();
                         arcadeShakeIntensity = 20;
-                        arcadeCabinet.classList.add('flash-skull');
+                        arcadeCabinet.classList.add('flash-skull'); 
                         setTimeout(() => arcadeCabinet.classList.remove('flash-skull'), 200);
                     }
                 }
-            } else if (e.key === 'Escape') {
-                startScreen.classList.add('hidden');
-                lobbyScreen.classList.remove('hidden');
-                uiState = 'LOBBY_MODE';
-                document.getElementById('lobby-coins').innerText = userData.coins;
+            } else if (e.key === 'Escape') { 
+                startScreen.classList.add('hidden'); 
+                lobbyScreen.classList.remove('hidden'); 
+                uiState = 'LOBBY_MODE'; 
+                document.getElementById('lobby-coins').innerText = userData.coins; 
             }
             break;
 
         case 'PAUSED':
             if (e.key === 'Escape') togglePause();
-            else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                pauseSelect = pauseSelect === 0 ? 1 : 0;
-                playMenuSelectSound();
-                updatePauseUI();
-            } else if (e.key === 'Enter') {
-                playMenuSelectSound();
-                if (pauseSelect === 0) togglePause();
-                else quitGame();
+            else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { 
+                pauseSelect = pauseSelect === 0 ? 1 : 0; 
+                playMenuSelectSound(); 
+                updatePauseUI(); 
+            } else if (e.key === 'Enter') { 
+                playMenuSelectSound(); 
+                if (pauseSelect === 0) togglePause(); 
+                else quitGame(); 
             }
             break;
 
         case 'GAMEOVER':
-            if (e.key === 'Enter') {
-                playMenuSelectSound();
+            if (e.key === 'Enter') { 
+                playMenuSelectSound(); 
                 const restartBtn = document.getElementById('restart-btn');
-                if (restartBtn) restartBtn.click();
+                if (restartBtn) restartBtn.click(); 
             }
             break;
     }
@@ -677,7 +697,7 @@ async function createRoom() {
     if (!db) { alert("Firebase is not initialized for multiplayer."); return; }
     document.getElementById('multiplayer-controls').classList.add('hidden');
     document.getElementById('room-waiting').classList.remove('hidden');
-
+    
     peerConnection = new RTCPeerConnection(servers);
     dataChannel = peerConnection.createDataChannel('gameData');
     setupDataChannel(dataChannel);
@@ -703,19 +723,19 @@ async function joinRoom() {
     if (!db) { alert("Firebase is not initialized for multiplayer."); return; }
     const inputId = document.getElementById('join-room-id').value.toUpperCase();
     if (inputId.length < 5) return;
-
+    
     isHost = false;
     const roomsRef = db.collection('rooms');
     const q = await roomsRef.where('roomId', '==', inputId).get();
     if (q.empty) { alert("ROOM NOT FOUND"); return; }
-
+    
     const roomRef = q.docs[0].ref;
     gameMode = q.docs[0].data().mode;
 
     peerConnection = new RTCPeerConnection(servers);
-    peerConnection.ondatachannel = event => {
-        dataChannel = event.channel;
-        setupDataChannel(dataChannel);
+    peerConnection.ondatachannel = event => { 
+        dataChannel = event.channel; 
+        setupDataChannel(dataChannel); 
     };
 
     collectIceCandidates(roomRef, peerConnection, 'calleeCandidates', 'callerCandidates');
@@ -743,21 +763,21 @@ function setupDataChannel(dc) {
         multiplayerScreen.classList.add('hidden');
         startScreen.classList.remove('hidden');
         const startBtn = document.getElementById('start-btn');
-        if (!isHost && startBtn) {
-            startBtn.innerText = "WAITING FOR HOST...";
+        if (!isHost && startBtn) { 
+            startBtn.innerText = "WAITING FOR HOST..."; 
             startBtn.style.color = "#888";
-        } else {
+        } else { 
             updateSongDisplays();
         }
     };
-
+    
     dc.onmessage = (event) => {
         const msg = JSON.parse(event.data);
-        if (msg.type === 'START_GAME') {
-            currentSongIndex = msg.songIndex;
-            startGameSequence();
-        } else if (msg.type === 'SPAWN_LETTER') {
-            activeLetters.push(msg.letter);
+        if (msg.type === 'START_GAME') { 
+            currentSongIndex = msg.songIndex; 
+            startGameSequence(); 
+        } else if (msg.type === 'SPAWN_LETTER') { 
+            activeLetters.push(msg.letter); 
         } else if (msg.type === 'HIT_LETTER') {
             const idx = activeLetters.findIndex(l => l.id === msg.id);
             if (idx > -1) activeLetters.splice(idx, 1);
@@ -765,9 +785,9 @@ function setupDataChannel(dc) {
     };
 }
 
-function broadcast(msgObj) {
+function broadcast(msgObj) { 
     if (dataChannel && dataChannel.readyState === 'open') {
-        dataChannel.send(JSON.stringify(msgObj));
+        dataChannel.send(JSON.stringify(msgObj)); 
     }
 }
 
@@ -775,69 +795,82 @@ function broadcast(msgObj) {
 // 7. CORE GAMEPLAY ENGINE
 // ==========================================
 function startGameSequence() {
-    uiState = 'LOADING';
-    unlockAudio();
+    uiState = 'LOADING'; 
+    unlockAudio(); 
     playCoinSound();
-
-    currentSong = playlist[currentSongIndex];
+    
+    currentSong = playlist[currentSongIndex]; 
     if (trackEl) trackEl.innerText = currentSong.title;
 
-    bgMusic.pause();
-    bgMusic.src = currentSong.src;
+    bgMusic.pause(); 
+    bgMusic.src = currentSong.src; 
     bgMusic.loop = false;
-    if (masterGain) masterGain.gain.value = 0;
-
+    if (masterGain) masterGain.gain.value = 0; 
+    
     arcadeRoom.classList.add('game-running');
     gameContainer.style.borderColor = '#fff';
 
-    activeLetters = [];
-    floatingTexts = [];
+    activeLetters = []; 
+    activeWord = null;
+    floatingTexts = []; 
     particles = [];
-    score = 0;
-    currentRound = 1;
-    comboCount = 0;
-    comboMultiplier = 1;
-    lives = 3;
+    score = 0; 
+    currentRound = 1; 
+    comboCount = 0; 
+    comboMultiplier = 1; 
+    lives = 3; 
     sessionCoins = 0;
-    arcadeShakeIntensity = 0;
-    slowMoTimer = 0;
-    currentPlaybackRate = 1.0;
-    targetPlaybackRate = 1.0;
+    arcadeShakeIntensity = 0; 
+    slowMoTimer = 0; 
+    currentPlaybackRate = 1.0; 
+    targetPlaybackRate = 1.0; 
     bgMusic.playbackRate = 1.0;
-    currentFallSpeed = 200;
-    targetFallSpeed = 200;
-    beatInterval = 60 / currentSong.bpm;
-
-    startScreen.classList.add('hidden');
+    currentFallSpeed = 200; 
+    targetFallSpeed = 200; 
+    beatInterval = 60 / currentSong.bpm; 
+    
+    startScreen.classList.add('hidden'); 
     if (highScoreAlertEl) highScoreAlertEl.classList.add('hidden');
-
+    
     setTimeout(() => {
-        songTime = 0;
-        bgMusic.currentTime = 0;
-        if (masterGain) masterGain.gain.value = 1.0;
+        songTime = 0; 
+        bgMusic.currentTime = 0; 
+        if (masterGain) masterGain.gain.value = 1.0; 
         nextSpawnTime = 0.2;
-        isPlaying = true;
-        isPaused = false;
+        isPlaying = true; 
+        isPaused = false; 
         uiState = 'PLAYING';
-
+        
         bgMusic.play().catch(() => {
             if (currentSong.fallbackSrc) {
                 bgMusic.src = currentSong.fallbackSrc;
-                bgMusic.play().catch(() => { });
+                bgMusic.play().catch(() => {});
             }
         });
-
-        updateUI();
-        lastTime = performance.now();
+        
+        updateUI(); 
+        lastTime = performance.now(); 
         requestAnimationFrame(update);
-    }, 1500);
+    }, 1500); 
 }
 
 function spawnLetterLogic() {
+    // If a boss word is currently active, do NOT spawn anything else!
+    if (activeWord) return;
+
+    // 20% chance to spawn a Boss Word instead of a single letter
+    if (Math.random() < 0.20) {
+        const words = ["CYBER", "RHYTHM", "OVERKILL", "SYSTEM", "BIT", "ARCADE", "VECTOR"];
+        const text = words[Math.floor(Math.random() * words.length)];
+        const x = Math.random() * (canvas.width - 250) + 100;
+        activeWord = { text: text, progress: 0, x: x, y: -30, color: '#00ffff' };
+        return;
+    }
+
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     const char = chars[Math.floor(Math.random() * chars.length)];
     const x = Math.random() * (canvas.width - 120) + 60;
-
+    
     let type = 'normal';
     let color = comboColors[Math.min(comboMultiplier - 1, comboColors.length - 1)];
 
@@ -855,50 +888,50 @@ function spawnLetterLogic() {
 
 function update(time) {
     if (!isPlaying || isPaused) return;
-    const dt = Math.min((time - lastTime) / 1000, 0.1);
+    const dt = Math.min((time - lastTime) / 1000, 0.1); 
     lastTime = time;
 
-    if (bgMusic.readyState >= 3 && !bgMusic.paused) {
-        songTime = bgMusic.currentTime;
-    } else {
-        songTime += dt * (slowMoTimer > 0 ? 0.6 : targetPlaybackRate);
+    if (bgMusic.readyState >= 3 && !bgMusic.paused) { 
+        songTime = bgMusic.currentTime; 
+    } else { 
+        songTime += dt * (slowMoTimer > 0 ? 0.6 : targetPlaybackRate); 
     }
 
-    if (score >= 2000 && currentRound === 1) {
-        currentRound = 2;
-        targetPlaybackRate = 1.05;
-        targetFallSpeed = 230;
-        updateUI();
-    } else if (score >= 4000 && currentRound === 2) {
-        currentRound = 3;
-        targetPlaybackRate = 1.10;
-        targetFallSpeed = 260;
-        updateUI();
+    if (score >= 2000 && currentRound === 1) { 
+        currentRound = 2; 
+        targetPlaybackRate = 1.05; 
+        targetFallSpeed = 230; 
+        updateUI(); 
+    } else if (score >= 4000 && currentRound === 2) { 
+        currentRound = 3; 
+        targetPlaybackRate = 1.10; 
+        targetFallSpeed = 260; 
+        updateUI(); 
     }
 
     if (slowMoTimer > 0) {
-        slowMoTimer -= dt;
+        slowMoTimer -= dt; 
         arcadeCabinet.classList.add('slow-mo-active');
-        currentPlaybackRate += (0.5 - currentPlaybackRate) * dt * 3.0;
+        currentPlaybackRate += (0.5 - currentPlaybackRate) * dt * 3.0; 
         currentFallSpeed += ((targetFallSpeed * 0.4) - currentFallSpeed) * dt * 3.0;
     } else {
         arcadeCabinet.classList.remove('slow-mo-active');
-        if (currentPlaybackRate < targetPlaybackRate) {
-            currentPlaybackRate = targetPlaybackRate;
-            currentFallSpeed = targetFallSpeed;
+        if (currentPlaybackRate < targetPlaybackRate) { 
+            currentPlaybackRate = targetPlaybackRate; 
+            currentFallSpeed = targetFallSpeed; 
         }
     }
     bgMusic.playbackRate = Math.max(0.1, currentPlaybackRate);
 
     let currentShake = arcadeShakeIntensity;
-    if (isPlaying && slowMoTimer <= 0) currentShake += (window.musicReaction || 0) * 8;
+    if (isPlaying && slowMoTimer <= 0) currentShake += (window.musicReaction || 0) * 8; 
 
     if (currentShake > 0.5) {
         arcadeCabinet.style.transform = `translate3d(${(Math.random() - 0.5) * currentShake}px, ${94 + (Math.random() - 0.5) * currentShake}px, 1380px)`;
-        arcadeShakeIntensity *= 0.85;
+        arcadeShakeIntensity *= 0.85; 
         if (arcadeShakeIntensity < 0.1) arcadeShakeIntensity = 0;
-    } else {
-        arcadeCabinet.style.transform = `translate3d(0px, 94px, 1380px)`;
+    } else { 
+        arcadeCabinet.style.transform = `translate3d(0px, 94px, 1380px)`; 
     }
 
     if ((gameMode === 'solo' || isHost) && songTime >= nextSpawnTime) {
@@ -915,14 +948,14 @@ function update(time) {
     // 2. Draw beat-synced background grid and EQ bars behind everything
     let beat = window.musicReaction || 0;
     let hue = window.musicHue || 0;
-
+    
     ctx.fillStyle = `hsla(${hue}, 100%, 8%, ${0.2 + beat * 0.5})`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.strokeStyle = `hsla(${hue}, 100%, 50%, ${0.1 + beat * 0.3})`;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    const gridSize = 40 + (beat * 15);
+    const gridSize = 40 + (beat * 15); 
     const offsetX = (canvas.width % gridSize) / 2;
     for (let x = offsetX; x < canvas.width; x += gridSize) { ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); }
     for (let y = 0; y < canvas.height; y += gridSize) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
@@ -934,71 +967,101 @@ function update(time) {
         for (let i = 0; i < bars; i++) {
             const dataIndex = Math.floor((i / bars) * (dataArray.length / 2));
             const heightPct = dataArray[dataIndex] / 255;
-            const bHeight = heightPct * 180;
+            const bHeight = heightPct * 180; 
             ctx.fillStyle = `hsla(${(hue + i * 4) % 360}, 100%, 60%, ${0.2 + beat * 0.4})`;
             ctx.fillRect(i * bWidth, canvas.height - bHeight, bWidth - 2, bHeight);
         }
     }
 
-    // 3. Render particles, floating text, and falling letters on top
+    // 3. Render particles, floating text, and falling letters/words on top
     for (let i = particles.length - 1; i >= 0; i--) {
-        let p = particles[i];
-        p.vy += 1000 * dt;
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        p.life -= dt * 1.5;
-        if (p.life <= 0) particles.splice(i, 1);
-        else {
-            ctx.fillStyle = p.color;
-            ctx.globalAlpha = p.life;
-            ctx.fillRect(p.x, p.y, p.size, p.size);
+        let p = particles[i]; 
+        p.vy += 1000 * dt; 
+        p.x += p.vx * dt; 
+        p.y += p.vy * dt; 
+        p.life -= dt * 1.5; 
+        if (p.life <= 0) particles.splice(i, 1); 
+        else { 
+            ctx.fillStyle = p.color; 
+            ctx.globalAlpha = p.life; 
+            ctx.fillRect(p.x, p.y, p.size, p.size); 
         }
     }
     ctx.globalAlpha = 1.0;
 
     for (let i = floatingTexts.length - 1; i >= 0; i--) {
-        let ft = floatingTexts[i];
-        ft.y -= dt * 60;
+        let ft = floatingTexts[i]; 
+        ft.y -= dt * 60; 
         ft.life -= dt * 1.5;
         if (ft.life <= 0) floatingTexts.splice(i, 1);
-        else {
-            ctx.globalAlpha = Math.min(1.0, ft.life);
-            ctx.fillStyle = ft.color;
-            ctx.font = ft.size + 'px "Press Start 2P", monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText(ft.text, ft.x, ft.y);
+        else { 
+            ctx.globalAlpha = Math.min(1.0, ft.life); 
+            ctx.fillStyle = ft.color; 
+            ctx.font = ft.size + 'px "Press Start 2P", monospace'; 
+            ctx.textAlign = 'center'; 
+            ctx.fillText(ft.text, ft.x, ft.y); 
         }
     }
     ctx.globalAlpha = 1.0;
 
-    ctx.font = '24px "Press Start 2P", monospace';
-    ctx.textAlign = 'center';
+    // --- Draw Active Boss Word ---
+    if (activeWord) {
+        activeWord.y += (currentFallSpeed * 0.75) * dt; // Words fall slightly slower for readability
+        ctx.font = '22px "Press Start 2P", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const typedPart = activeWord.text.substring(0, activeWord.progress);
+        const remainingPart = activeWord.text.substring(activeWord.progress);
+
+        // Draw typed letters in green, remaining in cyan
+        ctx.fillStyle = '#00ff66';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#00ff66';
+        ctx.fillText(typedPart, activeWord.x - 30, activeWord.y);
+
+        ctx.fillStyle = '#00ffff';
+        ctx.shadowColor = '#00ffff';
+        ctx.fillText(remainingPart, activeWord.x + 30, activeWord.y);
+        ctx.shadowBlur = 0;
+
+        if (activeWord.y > canvas.height + 20) {
+            activeWord = null;
+            floatingTexts.push({ text: "WORD MISSED", x: canvas.width/2, y: canvas.height - 30, life: 0.8, size: 16, color: '#ff0033' });
+            loseLife();
+            if (lives <= 0) return;
+        }
+    }
+
+    // --- Draw Falling Normal Letters ---
+    ctx.font = '24px "Press Start 2P", monospace'; 
+    ctx.textAlign = 'center'; 
     ctx.textBaseline = 'middle';
     for (let i = activeLetters.length - 1; i >= 0; i--) {
-        let l = activeLetters[i];
+        let l = activeLetters[i]; 
         l.y += currentFallSpeed * dt;
-
-        ctx.globalAlpha = 1.0;
+        
+        ctx.globalAlpha = 1.0; 
         ctx.fillStyle = l.color;
-        ctx.shadowBlur = l.type !== 'normal' ? 15 : 0;
+        ctx.shadowBlur = l.type !== 'normal' ? 15 : 0; 
         ctx.shadowColor = l.color;
-
+        
         let text = l.char;
-        if (l.type === 'nuke') text = `[ ${l.char} ]`;
-        else if (l.type === '1up') text = `+ ${l.char} +`;
+        if (l.type === 'nuke') text = `[ ${l.char} ]`; 
+        else if (l.type === '1up') text = `+ ${l.char} +`; 
         else if (l.type === 'slow') text = `~ ${l.char} ~`;
         else if (l.type === 'skull') text = `☠ ${l.char} ☠`;
         ctx.fillText(text, l.x, l.y);
-        ctx.shadowBlur = 0;
-
-        if (l.y > canvas.height + 20) {
-            activeLetters.splice(i, 1);
+        ctx.shadowBlur = 0; 
+        
+        if (l.y > canvas.height + 20) { 
+            activeLetters.splice(i, 1); 
             if (l.type === 'skull') {
                 floatingTexts.push({ text: "EVADED", x: l.x, y: canvas.height - 30, life: 0.8, size: 16, color: '#00ff66' });
             } else {
                 floatingTexts.push({ text: "MISS", x: l.x, y: canvas.height - 30, life: 0.8, size: 16, color: '#ff0033' });
-                loseLife();
-                if (lives <= 0) return;
+                loseLife(); 
+                if (lives <= 0) return; 
             }
         }
     }
@@ -1006,18 +1069,18 @@ function update(time) {
 }
 
 function updateUI() {
-    scoreEl.innerText = score;
-    comboEl.innerText = comboCount;
+    scoreEl.innerText = score; 
+    comboEl.innerText = comboCount; 
     multiplierEl.innerText = 'x' + comboMultiplier;
     roundUiEl.innerText = 'ROUND ' + currentRound;
     if (sessionCoinsEl) sessionCoinsEl.innerText = sessionCoins;
-
-    let hearts = "";
-    for (let i = 0; i < lives; i++) hearts += "♥";
+    
+    let hearts = ""; 
+    for (let i = 0; i < lives; i++) hearts += "♥"; 
     livesEl.innerText = hearts;
-    if (lives === 1) gameContainer.classList.add('danger-state');
+    if (lives === 1) gameContainer.classList.add('danger-state'); 
     else gameContainer.classList.remove('danger-state');
-
+    
     const colorIndex = Math.min(comboMultiplier - 1, comboColors.length - 1);
     comboContainer.style.color = comboColors[colorIndex];
 }
@@ -1027,44 +1090,45 @@ function triggerPowerUp(letter) {
 
     if (isPositive) {
         sessionCoins = Math.ceil(sessionCoins * 1.5) + 5;
-        floatingTexts.push({ text: "COINS x1.5!", x: canvas.width / 2, y: canvas.height / 2 + 70, life: 2.0, size: 20, color: '#ffaa00' });
+        floatingTexts.push({ text: "COINS x1.5!", x: canvas.width/2, y: canvas.height/2 + 70, life: 2.0, size: 20, color: '#ffaa00' });
 
         if (letter.type === '1up') {
-            lives = Math.min(lives + 1, MAX_LIVES);
+            lives = Math.min(lives + 1, MAX_LIVES); 
             play1UPSound();
-            arcadeCabinet.classList.add('flash-1up');
+            arcadeCabinet.classList.add('flash-1up'); 
             setTimeout(() => arcadeCabinet.classList.remove('flash-1up'), 400);
             floatingTexts.push({ text: "1-UP!", x: letter.x, y: letter.y, life: 1.5, size: 20, color: '#0f0' });
         } else if (letter.type === 'nuke') {
-            arcadeShakeIntensity = 80;
+            arcadeShakeIntensity = 80; 
             playNukeSound();
-            arcadeCabinet.classList.add('flash-nuke');
+            arcadeCabinet.classList.add('flash-nuke'); 
             setTimeout(() => arcadeCabinet.classList.remove('flash-nuke'), 500);
             let pointsGained = 0;
-            for (let i = activeLetters.length - 1; i >= 0; i--) {
-                pointsGained += (10 * comboMultiplier);
-                createExplosion(activeLetters[i].x, activeLetters[i].y, activeLetters[i].color, 1.3);
+            for (let i = activeLetters.length - 1; i >= 0; i--) { 
+                pointsGained += (10 * comboMultiplier); 
+                createExplosion(activeLetters[i].x, activeLetters[i].y, activeLetters[i].color, 1.3); 
             }
             score += pointsGained;
-            floatingTexts.push({ text: "NUKE DETONATED!", x: canvas.width / 2, y: canvas.height / 2, life: 2.0, size: 30, color: '#ff4400' });
-            if (pointsGained > 0) floatingTexts.push({ text: `+${pointsGained}`, x: canvas.width / 2, y: canvas.height / 2 + 40, life: 2.0, size: 20, color: '#fff' });
-            activeLetters = [];
-            targetFallSpeed = 200 + ((currentRound - 1) * 30);
-            nextSpawnTime = songTime + 2.0;
+            floatingTexts.push({ text: "NUKE DETONATED!", x: canvas.width/2, y: canvas.height/2, life: 2.0, size: 30, color: '#ff4400' });
+            if (pointsGained > 0) floatingTexts.push({ text: `+${pointsGained}`, x: canvas.width/2, y: canvas.height/2 + 40, life: 2.0, size: 20, color: '#fff' });
+            activeLetters = []; 
+            activeWord = null;
+            targetFallSpeed = 200 + ((currentRound - 1) * 30); 
+            nextSpawnTime = songTime + 2.0; 
         } else if (letter.type === 'slow') {
-            slowMoTimer = 6.0;
+            slowMoTimer = 6.0; 
             playSlowMoSound();
             floatingTexts.push({ text: "TIME WARP", x: letter.x, y: letter.y, life: 1.5, size: 20, color: '#0ff' });
         }
     } else {
-        arcadeShakeIntensity = 40;
+        arcadeShakeIntensity = 40; 
         playDamageSound();
-        arcadeCabinet.classList.add('flash-skull');
+        arcadeCabinet.classList.add('flash-skull'); 
         setTimeout(() => arcadeCabinet.classList.remove('flash-skull'), 400);
-
-        sessionCoins = Math.floor(sessionCoins / 2);
-        comboCount = 0;
-        comboMultiplier = 1;
+        
+        sessionCoins = Math.floor(sessionCoins / 2); 
+        comboCount = 0; 
+        comboMultiplier = 1; 
         floatingTexts.push({ text: "POISON! COINS HALVED!", x: letter.x, y: letter.y, life: 1.5, size: 20, color: '#ff0033' });
     }
 }
@@ -1073,30 +1137,30 @@ function createExplosion(x, y, color, scale = 1.0) {
     const particleCount = 35 * scale;
     for (let i = 0; i < particleCount; i++) {
         particles.push({
-            x: x + (Math.random() - 0.5) * 20,
+            x: x + (Math.random() - 0.5) * 20, 
             y: y + (Math.random() - 0.5) * 20,
-            vx: (Math.random() - 0.5) * (800 * scale),
+            vx: (Math.random() - 0.5) * (800 * scale), 
             vy: (Math.random() - 0.5) * (800 * scale),
-            life: 1.0 + Math.random() * 0.3,
-            size: Math.random() * (8 * scale) + 2,
+            life: 1.0 + Math.random() * 0.3, 
+            size: Math.random() * (8 * scale) + 2, 
             color: color
         });
     }
 }
 
 function loseLife() {
-    lives--;
-    comboCount = 0;
+    lives--; 
+    comboCount = 0; 
     comboMultiplier = 1;
-    arcadeShakeIntensity = 60;
+    arcadeShakeIntensity = 60; 
     playDamageSound();
-
+    
     gameContainer.classList.add('damage-flicker');
     setTimeout(() => gameContainer.classList.remove('damage-flicker'), 400);
     updateUI();
-
+    
     if (lives <= 0) {
-        isPlaying = false;
+        isPlaying = false; 
         uiState = 'GAMEOVER';
         finalScoreEl.innerText = score;
 
@@ -1110,11 +1174,11 @@ function loseLife() {
         } else {
             phrases = ["FLAWLESS VICTORY!", "ASCENDED TO GODHOOD!", "CYBERNETIC REFLEXES!"];
         }
-
+        
         const randomPhrase = phrases[Math.floor(Math.random() * phrases.length)];
         const conclusionEl = document.getElementById('conclusion-phrase');
         if (conclusionEl) conclusionEl.innerText = randomPhrase;
-
+        
         if (score > userData.highScore) {
             userData.highScore = score;
             if (highScoreAlertEl) highScoreAlertEl.classList.remove('hidden');
@@ -1122,12 +1186,12 @@ function loseLife() {
 
         userData.coins += sessionCoins;
         saveLocalProfile();
-
+        
         earnedCoinsEl.innerText = "+" + sessionCoins;
         gameOverScreen.classList.remove('hidden');
         bgMusic.pause();
     } else {
-        slowMoTimer = 2.0;
+        slowMoTimer = 2.0; 
         playSlowMoSound();
     }
 }
@@ -1136,37 +1200,37 @@ function togglePause() {
     if (!isPlaying) return;
     isPaused = !isPaused;
     if (isPaused) {
-        uiState = 'PAUSED';
-        bgMusic.pause();
-        pauseSelect = 0;
-        updatePauseUI();
+        uiState = 'PAUSED'; 
+        bgMusic.pause(); 
+        pauseSelect = 0; 
+        updatePauseUI(); 
         pauseScreen.classList.remove('hidden');
     } else {
-        uiState = 'PLAYING';
-        pauseScreen.classList.add('hidden');
+        uiState = 'PLAYING'; 
+        pauseScreen.classList.add('hidden'); 
         requestAnimationFrame((t) => { lastTime = t; bgMusic.play(); requestAnimationFrame(update); });
     }
 }
 
 function quitGame() {
-    isPaused = false;
-    isPlaying = false;
+    isPaused = false; 
+    isPlaying = false; 
     uiState = 'LOBBY_MODE';
 
     bgMusic.pause();
     bgMusic.currentTime = 0;
 
     arcadeRoom.classList.remove('game-running');
-    pauseScreen.classList.add('hidden');
-    startScreen.classList.add('hidden');
+    pauseScreen.classList.add('hidden'); 
+    startScreen.classList.add('hidden'); 
     lobbyScreen.classList.remove('hidden');
     gameContainer.classList.remove('danger-state');
-
-    arcadeCabinet.style.transform = '';
+    
+    arcadeCabinet.style.transform = ''; 
     arcadeCabinet.classList.remove('slow-mo-active');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    updateLobbyUI();
+    
+    updateLobbyUI(); 
     startMenuMusic(true);
 }
 
@@ -1174,18 +1238,18 @@ function quitGame() {
 // 8. MOUSE CLICK EVENT LISTENERS
 // ==========================================
 const restartBtn = document.getElementById('restart-btn');
-if (restartBtn) restartBtn.addEventListener('click', () => {
+if (restartBtn) restartBtn.addEventListener('click', () => { 
     playMenuSelectSound();
-    gameOverScreen.classList.add('hidden');
-    quitGame();
+    gameOverScreen.classList.add('hidden'); 
+    quitGame(); 
 });
 
 const profBackBtn = document.getElementById('btn-prof-back');
-if (profBackBtn) profBackBtn.addEventListener('click', () => {
+if (profBackBtn) profBackBtn.addEventListener('click', () => { 
     playMenuSelectSound();
-    profileScreen.classList.add('hidden');
-    lobbyScreen.classList.remove('hidden');
-    uiState = 'LOBBY_MODE';
+    profileScreen.classList.add('hidden'); 
+    lobbyScreen.classList.remove('hidden'); 
+    uiState = 'LOBBY_MODE'; 
 });
 
 const mpBackBtn = document.getElementById('btn-mp-back');
