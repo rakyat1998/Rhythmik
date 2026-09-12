@@ -4,39 +4,48 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>8-Bit Type Rhythm: Arcade Room</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
     <link rel="stylesheet" href="styles.css">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
-    <!-- AURA AND PARTICLES CANVAS (Background) -->
     <canvas id="bg-canvas"></canvas>
 
     <div id="arcade-scaler">
         <div id="arcade-room" class="zoomed-in-view">
             
-            <!-- LEFT CABINET -->
+            <!-- LEFT ATTRACT-MODE CABINET -->
             <div class="arcade-cabinet left-cabinet">
-                <div class="marquee"><h1>RHYTHMIK</h1></div>
+                <div class="marquee side-chameleon"><h1>RHYTHMIK</h1></div>
                 <div class="screen-section">
-                    <div class="screen-housing"></div>
+                    <div class="screen-housing side-chameleon"></div>
                     <div class="monitor-glass">
                         <div class="side-screen-content">
                             <span class="sub">TRACK CYCLING</span>
                             <div id="left-screen-title">--</div>
+                            <div class="insert-coin-prompt">INSERT COIN</div>
                         </div>
                     </div>
                 </div>
-                <div class="control-panel-wrapper">
+                <div class="control-panel-wrapper side-chameleon">
                     <div class="control-panel">
                         <div class="start-buttons"><div class="p1-start"></div></div>
                         <div class="joystick-base"><div class="joystick-shaft"></div><div class="joystick-ball"></div></div>
                         <div class="buttons-container"><div class="action-button btn-red"></div><div class="action-button btn-blue"></div><div class="action-button btn-green"></div></div>
                     </div>
                 </div>
-                <div class="cabinet-base"><div class="coin-door-panel"><div class="coin-slot"><div class="coin-insert"></div><div class="coin-return"></div></div></div></div>
+                <div class="cabinet-base side-chameleon">
+                    <div class="coin-door-panel">
+                        <div class="coin-slot"><div class="coin-insert"></div><div class="coin-return"></div></div>
+                    </div>
+                </div>
             </div>
 
-            <!-- CENTER ACTIVE CABINET -->
+            <!-- CENTER ACTIVE PLAYER CABINET -->
             <div class="arcade-cabinet center-cabinet" id="arcade-cabinet">
                 <div class="marquee chameleon-part">
                     <h1>RHYTHMIK<br><span>OVERKILL</span></h1>
@@ -59,10 +68,10 @@
 
                                 <canvas id="gameCanvas" width="800" height="600"></canvas>
 
-                                <!-- INITIAL INTRO SCREEN -->
+                                <!-- FIRST MAIN TITLE SLIDE -->
                                 <div id="intro-screen" class="overlay">
                                     <h1>RHYTHMIK</h1>
-                                    <p>PRESS ENTER</p>
+                                    <p class="blink" style="margin-top: 60px; font-size: 18px; color: #0ff;">PRESS ENTER</p>
                                 </div>
 
                                 <!-- SONG SELECTION SCREEN -->
@@ -83,12 +92,14 @@
                                     <button id="start-btn">INSERT COIN [ENTER]</button>
                                 </div>
 
+                                <!-- PAUSE SCREEN -->
                                 <div id="pause-screen" class="overlay hidden">
                                     <h1 style="color: #ffaa00;">PAUSED</h1>
                                     <button id="resume-btn" class="selected-btn">RESUME</button>
                                     <button id="quit-btn" style="background-color: #333; color: #fff;">QUIT GAME</button>
                                 </div>
 
+                                <!-- GAME OVER SCREEN -->
                                 <div id="game-over-screen" class="overlay hidden">
                                     <h1 style="color: #fff; text-shadow: 0 0 20px #f00;">WASTED</h1>
                                     <p>FINAL SCORE: <span id="final-score">0</span></p>
@@ -97,7 +108,6 @@
                             </div>
                         </div>
                         
-                        <!-- Global Realistic CRT Overlay (Covers Menu & Gameplay) -->
                         <div class="crt-overlay"></div>
                     </div>
                 </div>
@@ -118,26 +128,31 @@
                 </div>
             </div>
 
-            <!-- RIGHT CABINET -->
+            <!-- RIGHT ATTRACT-MODE CABINET -->
             <div class="arcade-cabinet right-cabinet">
-                <div class="marquee"><h1>RHYTHMIK</h1></div>
+                <div class="marquee side-chameleon"><h1>RHYTHMIK</h1></div>
                 <div class="screen-section">
-                    <div class="screen-housing"></div>
+                    <div class="screen-housing side-chameleon"></div>
                     <div class="monitor-glass">
                         <div class="side-screen-content">
                             <span class="sub">TRACK CYCLING</span>
                             <div id="right-screen-title">--</div>
+                            <div class="insert-coin-prompt">INSERT COIN</div>
                         </div>
                     </div>
                 </div>
-                <div class="control-panel-wrapper">
+                <div class="control-panel-wrapper side-chameleon">
                     <div class="control-panel">
                         <div class="start-buttons"><div class="p1-start"></div></div>
                         <div class="joystick-base"><div class="joystick-shaft"></div><div class="joystick-ball"></div></div>
                         <div class="buttons-container"><div class="action-button btn-red"></div><div class="action-button btn-blue"></div><div class="action-button btn-green"></div></div>
                     </div>
                 </div>
-                <div class="cabinet-base"><div class="coin-door-panel"><div class="coin-slot"><div class="coin-insert"></div><div class="coin-return"></div></div></div></div>
+                <div class="cabinet-base side-chameleon">
+                    <div class="coin-door-panel">
+                        <div class="coin-slot"><div class="coin-insert"></div><div class="coin-return"></div></div>
+                    </div>
+                </div>
             </div>
 
         </div>
