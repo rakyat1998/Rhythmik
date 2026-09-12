@@ -2,6 +2,7 @@ let isSplashActive = true;
 let isPlaying = false;
 let isPaused = false;
 
+
 function fitArcade() {
     const scaler = document.getElementById('arcade-scaler');
     const targetWidth = 1000;
@@ -42,14 +43,14 @@ const resumeBtn = document.getElementById('resume-btn');
 const quitBtn = document.getElementById('quit-btn');
 
 const playlist = [
-    { title: "Master of Puppets", bpm: 130 },
-    { title: "Super Mario Bros.", bpm: 120 },
-    { title: "Shape Of You", bpm: 140 },
-    { title: "Enter Sandman", bpm: 155 },
-    { title: "Scourage of Iron", bpm: 160 },
-    { title: "New Divide", bpm: 125 },
-    { title: "Creep", bpm: 135 },
-    { title: "For Whom The Bell Tolls", bpm: 150 }
+    { title: "Master of Puppets", bpm: 130, path: "audio/master_of_puppets.mp3" },
+    { title: "Super Mario Bros.", bpm: 120, path: "audio/super_mario_bros.mp3" },
+    { title: "Shape Of You", bpm: 140, path: "audio/shape_of_you.mp3" },
+    { title: "Enter Sandman", bpm: 155, path: "audio/enter_sandman.mp3" },
+    { title: "Scourage of Iron", bpm: 160, path: "audio/scourage_of_iron.mp3" },
+    { title: "New Divide", bpm: 125, path: "audio/new_divide.mp3" },
+    { title: "Creep", bpm: 135, path: "audio/creep.mp3" },
+    { title: "For Whom The Bell Tolls", bpm: 150, path: "audio/for_whom_the_bell_tolls.mp3" }
 ];
 
 let currentSongIndex = 0;
@@ -209,34 +210,44 @@ function initAudio() {
     }
 }
 
-const melody = [110, 110, 130.81, 146.83, 164.81, 146.83, 130.81, 98];
-let synthStep = 0;
+
+
+let currentTrackAudio = new Audio();
+let trackSource = null;
 
 function startSynthEngine() {
     isMusicPlaying = true;
-    songTime = 0;
-    const bpm = playlist[currentSongIndex].bpm;
-    const stepInterval = (60 / bpm) / 4 * 1000;
+    
+    currentTrackAudio.src = playlist[currentSongIndex].path;
+    currentTrackAudio.play();
+
+    // Route the standard audio element into the existing Web Audio context for the visualizer
+    if (audioCtx && !trackSource) {
+        trackSource = audioCtx.createMediaElementSource(currentTrackAudio);
+        trackSource.connect(masterGain);
+    }
 
     if (musicTimer) clearInterval(musicTimer);
     musicTimer = setInterval(() => {
-        if (!isMusicPlaying || isPaused || !audioCtx) return;
-        songTime += stepInterval / 1000;
-        const t = audioCtx.currentTime;
-
-        if (synthStep % 4 === 0) playTone(140, 'sine', t, 0.12, 0.5, 30);
-        if (synthStep % 8 === 4) playNoise(t, 0.08, 0.28);
-        const freq = melody[synthStep % melody.length];
-        playTone(freq, 'sawtooth', t, 0.09, 0.18, freq * 0.95);
-
-        synthStep = (synthStep + 1) % 16;
-    }, stepInterval);
+        if (!isMusicPlaying || isPaused || !audioCtx) {
+            currentTrackAudio.pause();
+            return;
+        } else if (currentTrackAudio.paused) {
+            currentTrackAudio.play();
+        }
+        
+        // Sync the game's spawn logic with the actual audio track time
+        songTime = currentTrackAudio.currentTime; 
+    }, 100);
 }
 
 function stopSynthEngine() {
     isMusicPlaying = false;
+    currentTrackAudio.pause();
+    currentTrackAudio.currentTime = 0;
     if (musicTimer) clearInterval(musicTimer);
 }
+
 
 function playTone(freq, type, time, duration, vol, dropFreq = null) {
     if (!audioCtx || !masterGain) return;
