@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>8-Bit Type Rhythm: Arcade Room</title>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+        <style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+:root {
+    --game-scale: 0.9;
+    --screen-width: calc(800px * var(--game-scale));
+    --screen-height: calc(600px * var(--game-scale));
+    --cab-primary: #151515;
+    --cab-secondary: #0a0a0a;
+    --cab-accent: #ff0055;
+    --cab-accent-glow: rgba(255, 0, 85, 0.85);
+    --neon-cyan: #00f3ff;
+    --neon-yellow: #ffe600;
+}
+
+* { box-sizing: border-box; user-select: none; }
+
+html, body {
+    margin: 0; padding: 0; width: 100vw; height: 100vh;
+    background: radial-gradient(circle at 50% 30%, #170728 0%, #07030e 55%, #010003 100%);
+    color: #fff; font-family: 'Press Start 2P', monospace;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; overflow: hidden; perspective: 2500px;
+    transform-style: preserve-3d;
+}
+
+#bg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; }
+
+/* Intro Splash Screen */
+#intro-screen {
+    background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background-image: linear-gradient(0deg, transparent 24%, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.05) 26%, transparent 27%, transparent 74%, rgba(255, 255, 255, 0.05) 75%, rgba(255, 255, 255, 0.05) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.05) 26%, transparent 27%, transparent 74%, rgba(255, 255, 255, 0.05) 75%, rgba(255, 255, 255, 0.05) 76%, transparent 77%, transparent);
+    background-size: 50px 50px;
+}
+
+.intro-content { z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+.chromatic-title { font-size: 80px; color: #fff; margin: 0 0 40px 0; letter-spacing: 8px; text-shadow: 4px 4px 0 #ff0055, -4px -4px 0 #0ff, 0 0 30px rgba(255, 255, 255, 0.5); position: relative; animation: floatTitle 3s ease-in-out infinite; }
+@keyframes floatTitle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.press-enter-text { font-size: 24px; color: #ffcc00; letter-spacing: 4px; text-shadow: 0 0 10px #ffcc00; margin: 0; animation: arcadeBlink 0.8s step-end infinite; }
+@keyframes arcadeBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+#arcade-scaler { transform-origin: center center; display: flex; justify-content: center; align-items: center; z-index: 1; transform-style: preserve-3d; }
+#arcade-room { position: relative; width: 900px; height: 1250px; transform-style: preserve-3d; transition: transform 5.0s cubic-bezier(0.2, 0.8, 0.2, 1); }
+#arcade-room.zoomed-in-view { transform: translateZ(1420px) translateY(115px); }
+
+/* Left/Right Machine visibility handling based on view */
+#arcade-room.game-running .center-cabinet { transform: translateZ(900px) translateY(220px); }
+#arcade-room.game-running .left-cabinet { opacity: 0; transform: translateX(-2000px) translateZ(-800px) rotateY(-40deg); pointer-events: none; }
+#arcade-room.game-running .right-cabinet { opacity: 0; transform: translateX(2000px) translateZ(-800px) rotateY(40deg); pointer-events: none; }
+
+#arcade-room.vs-running .center-cabinet { transform: translateX(-400px) translateZ(400px) rotateY(10deg) translateY(200px); }
+#arcade-room.vs-running .right-cabinet { transform: translateX(400px) translateZ(400px) rotateY(-10deg) translateY(200px); opacity: 1; pointer-events: none; }
+#arcade-room.vs-running .left-cabinet { opacity: 0; transform: translateX(-2000px) translateZ(-800px) rotateY(-40deg); pointer-events: none; }
+
+@keyframes shiftCarouselLeft { 0% { transform: translateZ(0px) translateY(0px) rotateY(0deg) translateX(0px); } 50% { transform: translateZ(-100px) translateY(0px) rotateY(-8deg) translateX(-180px); } 100% { transform: translateZ(0px) translateY(0px) rotateY(0deg) translateX(0px); } }
+@keyframes shiftCarouselRight { 0% { transform: translateZ(0px) translateY(0px) rotateY(0deg) translateX(0px); } 50% { transform: translateZ(-100px) translateY(0px) rotateY(8deg) translateX(180px); } 100% { transform: translateZ(0px) translateY(0px) rotateY(0deg) translateX(0px); } }
+
+#arcade-room.shift-left { animation: shiftCarouselLeft 0.4s cubic-bezier(0.25, 1, 0.5, 1) !important; }
+#arcade-room.shift-right { animation: shiftCarouselRight 0.4s cubic-bezier(0.25, 1, 0.5, 1) !important; }
+
+.arcade-cabinet { position: absolute; top: 0; left: 0; width: 900px; height: 1250px; display: flex; flex-direction: column; align-items: center; transform-origin: center; border-left: 14px solid #1a1a24; border-right: 14px solid #1a1a24; box-shadow: 0 40px 100px rgba(0, 0, 0, 1); transform-style: preserve-3d; transition: transform 2.0s cubic-bezier(0.25, 1, 0.5, 1), opacity 1.8s ease-in-out, box-shadow 0.1s; }
+.arcade-cabinet::before { content: ''; position: absolute; top: 180px; bottom: 0; left: -14px; right: -14px; pointer-events: none; z-index: 0; background: repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.015) 0px, rgba(255, 255, 255, 0.015) 8px, transparent 8px, transparent 16px); }
+
+.center-cabinet { z-index: 10; transform: translateZ(40px); }
+.left-cabinet { z-index: 1; transform: translateX(-980px) translateZ(-220px) rotateY(-14deg); filter: contrast(1.15) brightness(0.9); }
+.right-cabinet { z-index: 1; transform: translateX(980px) translateZ(-220px) rotateY(14deg); filter: contrast(1.15) brightness(0.9); }
+
+.left-cabinet::after { content: ''; position: absolute; top: 0; left: -6px; width: calc(100% + 12px); height: 100%; border-left: 6px solid var(--neon-cyan); border-right: 6px solid var(--neon-cyan); box-shadow: 0 0 30px var(--neon-cyan), inset 0 0 25px rgba(0, 243, 255, 0.4); pointer-events: none; animation: sideGlowCyan 4s infinite alternate ease-in-out; }
+.right-cabinet::after { content: ''; position: absolute; top: 0; left: -6px; width: calc(100% + 12px); height: 100%; border-left: 6px solid var(--neon-yellow); border-right: 6px solid var(--neon-yellow); box-shadow: 0 0 30px var(--neon-yellow), inset 0 0 25px rgba(255, 230, 0, 0.4); pointer-events: none; animation: sideGlowYellow 4s infinite alternate ease-in-out; }
+
+@keyframes sideGlowCyan { 0% { filter: hue-rotate(0deg) drop-shadow(0 0 15px var(--neon-cyan)); } 100% { filter: hue-rotate(45deg) drop-shadow(0 0 30px #0088ff); } }
+@keyframes sideGlowYellow { 0% { filter: hue-rotate(0deg) drop-shadow(0 0 15px var(--neon-yellow)); } 100% { filter: hue-rotate(-45deg) drop-shadow(0 0 30px #ff5500); } }
+
+.left-cabinet .control-panel, .right-cabinet .control-panel { transform: rotateX(40deg) translateZ(80px) translateY(20px) scale(1.05) !important; border-bottom: 28px solid #0a0a0a !important; border-right: 12px solid #222 !important; border-left: 12px solid #222 !important; box-shadow: inset 0 10px 30px rgba(255, 255, 255, 0.15), 0 50px 70px rgba(0, 0, 0, 1) !important; }
+
+.chameleon-part { transition: filter 0.1s, transform 0.05s; }
+.center-cabinet.flash-nuke .chameleon-part { animation: none !important; filter: hue-rotate(0deg) brightness(2.5) saturate(3) drop-shadow(0 0 120px #ff4400) !important; }
+.center-cabinet.flash-1up .chameleon-part { animation: none !important; filter: hue-rotate(90deg) brightness(2) saturate(2) drop-shadow(0 0 120px #0f0) !important; }
+.center-cabinet.flash-combo .chameleon-part { animation: none !important; filter: brightness(2.5) saturate(1.5) drop-shadow(0 0 100px #fff) !important; }
+.center-cabinet.flash-skull .chameleon-part { animation: none !important; filter: hue-rotate(0deg) brightness(0.5) saturate(3) drop-shadow(0 0 100px #ff0000) !important; }
+
+@keyframes damageFlicker { 0%, 50%, 100% { background-color: #000; box-shadow: 0 0 20px #fff; } 25%, 75% { background-color: #600000; box-shadow: inset 0 0 80px #ff0000, 0 0 60px #ff0000; } }
+.damage-flicker { animation: damageFlicker 0.4s ease-in-out !important; }
+
+.marquee { width: 100%; height: 180px; background: linear-gradient(135deg, #2a0010, #000); border: 12px solid var(--cab-primary); border-bottom: 6px solid #333; border-radius: 20px 20px 0 0; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 45px var(--cab-accent-glow), 0 0 30px rgba(255, 0, 85, 0.4); position: relative; overflow: hidden; z-index: 2; }
+.marquee h1 { margin: 0; font-size: 38px; color: #fff; text-shadow: 0 0 15px var(--cab-accent), 0 0 30px var(--cab-accent), 5px 5px 0 #000; letter-spacing: 3px; text-align: center; line-height: 1.5; }
+.marquee h1 span { color: var(--neon-cyan); text-shadow: 0 0 15px var(--neon-cyan), 0 0 30px var(--neon-cyan), 5px 5px 0 #000; font-size: 22px; }
+
+.left-cabinet .marquee { background: linear-gradient(135deg, #002533, #000); box-shadow: inset 0 0 45px rgba(0, 243, 255, 0.8), 0 0 35px rgba(0, 243, 255, 0.5); }
+.left-cabinet .marquee h1 { color: #fff; text-shadow: 0 0 15px var(--neon-cyan), 0 0 30px var(--neon-cyan), 5px 5px 0 #000; }
+.right-cabinet .marquee { background: linear-gradient(135deg, #332500, #000); box-shadow: inset 0 0 45px rgba(255, 230, 0, 0.8), 0 0 35px rgba(255, 230, 0, 0.5); }
+.right-cabinet .marquee h1 { color: #fff; text-shadow: 0 0 15px var(--neon-yellow), 0 0 30px var(--neon-yellow), 5px 5px 0 #000; }
+
+.screen-section { width: 95%; height: 620px; position: relative; display: flex; justify-content: center; align-items: center; z-index: 1; }
+.screen-housing { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #111; border-left: 20px solid #222; border-right: 20px solid #222; box-shadow: inset 0 40px 60px #000, inset 0 -40px 60px #000; }
+.monitor-glass { width: var(--screen-width); height: var(--screen-height); border: 20px solid #050505; border-radius: 28px; background: #000; position: relative; overflow: hidden; box-shadow: 0 0 30px #000, inset 0 0 35px rgba(255, 255, 255, 0.05); z-index: 5; }
+.monitor-glass::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 48%; background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.015) 35%, transparent 60%); border-radius: 25px 25px 120px 120px / 20px 20px 60px 60px; pointer-events: none; z-index: 55; }
+
+.crt-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 50; pointer-events: none; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.28) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.05), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.05)), radial-gradient(circle at center, transparent 50%, rgba(0, 0, 0, 0.65) 100%); background-size: 100% 3px, 3px 100%, 100% 100%; box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.85); animation: crtGlobalFlicker 0.15s infinite; }
+.crt-overlay::before { content: " "; position: absolute; top: -100%; left: 0; right: 0; height: 15%; background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.12) 50%, transparent); animation: scanlineSweep 5s linear infinite; pointer-events: none; }
+@keyframes scanlineSweep { 0% { top: -20%; } 100% { top: 120%; } }
+@keyframes crtGlobalFlicker { 0% { opacity: 0.95; } 50% { opacity: 1; } 100% { opacity: 0.98; } }
+
+.side-screen-content { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; background: #050505; color: var(--neon-cyan); font-size: 24px; text-align: center; text-shadow: 0 0 16px var(--neon-cyan); padding: 40px; line-height: 1.6; }
+.side-screen-content span.sub { font-size: 14px; color: #888; margin-bottom: 20px; text-shadow: none; letter-spacing: 3px; }
+
+.left-cabinet .side-screen-content { color: var(--neon-cyan); text-shadow: 0 0 16px var(--neon-cyan); }
+.right-cabinet .side-screen-content { color: var(--neon-yellow); text-shadow: 0 0 16px var(--neon-yellow); }
+
+#scale-wrapper { transform: scale(var(--game-scale)); transform-origin: top left; width: 800px; height: 600px; }
+#game-container { position: relative; width: 800px; height: 600px; border: 4px solid #fff; box-shadow: 0 0 20px #fff; background-color: #000; transition: border-color 0.1s, box-shadow 0.1s, background-color 0.1s; overflow: hidden; }
+
+@keyframes dangerPulse { 0%, 100% { box-shadow: 0 0 20px #ff0000 inset, 0 0 30px #ff0000; border-color: #ff0000; } 50% { box-shadow: 0 0 60px #ff0000 inset, 0 0 80px #ff0000; border-color: #880000; } }
+.danger-state { animation: dangerPulse 0.6s infinite !important; }
+canvas { display: block; }
+
+#ui-layer { position: absolute; top: 25px; left: 30px; right: 45px; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; text-shadow: 2px 2px #000; z-index: 20; }
+#score { color: var(--neon-yellow); text-shadow: 0 0 8px var(--neon-yellow), 2px 2px 0 #000; }
+#lives-container { text-align: center; font-size: 24px; color: var(--cab-accent); letter-spacing: 5px; text-shadow: 0 0 10px var(--cab-accent), 2px 2px 0 #000; }
+#combo-container { text-align: right; color: #fff; transition: color 0.1s; }
+#multiplier { font-size: 12px; display: block; margin-top: 5px; }
+#track-info { position: absolute; bottom: 15px; left: 20px; right: 20px; text-align: center; font-size: 10px; color: #aaa; pointer-events: none; z-index: 20; }
+
+.overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.88); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; z-index: 10; }
+.hidden { display: none !important; }
+.blink { animation: blink 1s infinite step-end; }
+
+button { margin-top: 15px; padding: 15px 20px; background-color: #fff; color: #000; border: 2px solid transparent; font-family: 'Press Start 2P', monospace; font-size: 14px; cursor: pointer; transition: all 0.1s; pointer-events: auto; }
+button:hover, button.selected-btn { transform: scale(1.08); background-color: var(--cab-accent); color: #fff; box-shadow: 0 0 15px var(--cab-accent); border: 2px solid var(--neon-cyan); }
+
+.retro-input { font-family: 'Press Start 2P', monospace; background: #000; border: 2px solid #0ff; color: #fff; padding: 10px; text-align: center; outline: none; margin-bottom: 15px; width: 80%; display: block; margin-left: auto; margin-right: auto; }
+.retro-input:focus { border-color: #ff0055; box-shadow: 0 0 10px #ff0055; }
+#song-selection-display { margin: 20px 0; padding: 15px; border: 2px dashed var(--cab-accent); color: var(--neon-cyan); background: rgba(255, 0, 85, 0.1); font-size: 16px; line-height: 1.5; }
+
+.control-panel-wrapper { width: 100%; perspective: 1000px; z-index: 3; margin-top: -15px; }
+.control-panel { width: 100%; height: 180px; background: linear-gradient(to bottom, #2a2a2a, #111); border: 6px solid #333; border-top: 3px solid #555; border-radius: 8px; transform: rotateX(25deg); box-shadow: inset 0 8px 20px rgba(255, 255, 255, 0.1), 0 30px 40px rgba(0, 0, 0, 0.9); display: flex; align-items: center; justify-content: space-around; padding: 0 50px; transition: all 0.3s; }
+.joystick-base { width: 80px; height: 80px; background: radial-gradient(circle, #333, #000); border-radius: 50%; position: relative; box-shadow: inset 0 0 15px #000, 0 8px 15px rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; }
+.joystick-shaft { width: 12px; height: 50px; background: linear-gradient(to right, #999, #eee, #999); position: absolute; bottom: 50%; border-radius: 6px; }
+.joystick-ball { width: 46px; height: 46px; background: radial-gradient(circle at 12px 12px, #ff4d4d, #800000); border-radius: 50%; position: absolute; bottom: 75%; box-shadow: 0 12px 20px rgba(0, 0, 0, 0.6); transition: transform 0.08s ease-out; }
+.left-cabinet .joystick-ball { background: radial-gradient(circle at 12px 12px, #4dffff, #006677); }
+.right-cabinet .joystick-ball { background: radial-gradient(circle at 12px 12px, #ffff4d, #887700); }
+
+.buttons-container { display: flex; gap: 20px; transform: rotate(-10deg); }
+.action-button { width: 60px; height: 60px; border-radius: 50%; position: relative; box-shadow: 0 8px 0 #000, 0 12px 15px rgba(0, 0, 0, 0.6); cursor: pointer; transition: transform 0.06s ease, filter 0.06s ease; }
+.btn-red { background: radial-gradient(circle at 20px 20px, #ff4d4d, #aa0000); border: 3px solid #500; }
+.btn-blue { background: radial-gradient(circle at 20px 20px, #4dffff, #008888); border: 3px solid #044; }
+.btn-green { background: radial-gradient(circle at 20px 20px, #4dff4d, #008800); border: 3px solid #040; }
+.start-buttons { display: flex; gap: 25px; align-self: flex-start; margin-top: 20px; }
+.p1-start { width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle, #fff, #aaa); box-shadow: 0 4px 0 #444, 0 6px 8px #000; }
+
+.cabinet-base { width: 95%; flex-grow: 1; background: repeating-linear-gradient(90deg, #181818 0px, #181818 12px, #111 12px, #111 24px); border-left: 20px solid #1a1a1a; border-right: 20px solid #1a1a1a; border-bottom: 25px solid #0a0a0a; display: flex; align-items: flex-start; justify-content: center; padding-top: 60px; box-shadow: inset 0 30px 40px rgba(0, 0, 0, 0.9); }
+.coin-door-panel { width: 280px; height: 240px; background: #222; border: 5px solid #111; border-radius: 8px; box-shadow: inset 0 0 30px #000, 0 8px 25px rgba(0, 0, 0, 0.6); display: flex; justify-content: space-around; padding: 25px; }
+.coin-slot { width: 70px; height: 130px; background: #1a1a1a; border: 3px solid #333; border-radius: 4px; display: flex; flex-direction: column; align-items: center; padding-top: 12px; }
+.coin-insert { width: 12px; height: 45px; background: #000; border: 2px solid #ff4400; border-radius: 3px; box-shadow: 0 0 12px #ff4400, inset 0 0 6px #ff4400; margin-bottom: 20px; animation: coinGlow 1.5s infinite alternate; }
+.coin-return { width: 35px; height: 35px; background: #000; border: 3px solid #444; border-radius: 3px; }
+.left-cabinet .coin-insert { border-color: var(--neon-cyan); box-shadow: 0 0 12px var(--neon-cyan); }
+.right-cabinet .coin-insert { border-color: var(--neon-yellow); box-shadow: 0 0 12px var(--neon-yellow); }
+
+@keyframes coinGlow { 0% { box-shadow: 0 0 8px #ff4400, inset 0 0 3px #ff4400; border-color: #aa3300; } 100% { box-shadow: 0 0 20px #ff8800, inset 0 0 10px #ff8800; border-color: #ffaa00; } }
+</style>
+        <!-- Firebase SDKs -->
+        <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    </head>
+    <body>
+        <canvas id="bg-canvas"></canvas>
+        <div id="arcade-scaler">
+            <div id="arcade-room" class="zoomed-in-view">
+
+                <div id="vs-hologram" class="hidden" style="position: absolute; left: 50%; top: 50px; transform: translateX(-50%) translateZ(600px); width: 600px; text-align: center; z-index: 100; transform-style: preserve-3d;">
+                    <h2 style="color: #fff; text-shadow: 0 0 20px #00f3ff, 0 0 40px #00f3ff; font-size: 32px; letter-spacing: 5px; margin-bottom: 20px;">1V1 SHOWDOWN</h2>
+                    <div style="width: 100%; height: 30px; background: #ff0055; border: 6px solid #222; box-shadow: 0 0 30px #000, 0 0 20px #ff0055 inset; position: relative;">
+                        <div id="vs-meter-fill" style="width: 50%; height: 100%; background: #00f3ff; transition: width 0.3s ease-out; box-shadow: 0 0 20px #00f3ff inset;"></div>
+                    </div>
+                    <div id="match-timer" style="color: #ffe600; font-size: 60px; margin-top: 30px; text-shadow: 0 0 30px #ffe600, 4px 4px 0 #000;">60</div>
+                </div>
+
+                <!-- LEFT CABINET: USER PROFILE -->
+                <div class="arcade-cabinet left-cabinet">
+                    <div class="marquee side-chameleon"><h1>RHYTHMIK</h1></div>
+                    <div class="screen-section">
+                        <div class="screen-housing side-chameleon"></div>
+                        <div class="monitor-glass">
+                            <div class="side-screen-content" id="left-user-profile">
+                                <span class="sub" style="color:#0ff; margin-bottom: 30px;">USER DATA</span>
+                                <div style="font-size: 14px; margin-bottom: 15px; text-align: left; width: 100%; line-height: 2;">
+                                    <p>ALIAS: <span id="left-alias" style="color:#fff;">--</span></p>
+                                    <p>COINS: <span id="left-coins" style="color:#ffaa00;">0</span></p>
+                                    <p>HIGH SCORE: <span id="left-highscore" style="color:#0f0;">0</span></p>
+                                    <p style="font-size: 10px; color:#aaa; margin-top: -15px;">(<span id="left-hs-song">NONE</span>)</p>
+                                    <p>TRACKS: <span id="left-tracks" style="color:#0ff;">0/0</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="control-panel-wrapper side-chameleon">
+                        <div class="control-panel">
+                            <div class="start-buttons"><div class="p1-start"></div></div>
+                            <div class="joystick-base"><div class="joystick-shaft"></div><div class="joystick-ball"></div></div>
+                            <div class="buttons-container"><div class="action-button btn-red"></div><div class="action-button btn-blue"></div><div class="action-button btn-green"></div></div>
+                        </div>
+                    </div>
+                    <div class="cabinet-base side-chameleon"><div class="coin-door-panel"><div class="coin-slot"><div class="coin-insert"></div><div class="coin-return"></div></div></div></div>
+                </div>
+
+                <!-- CENTER ACTIVE PLAYER CABINET -->
+                <div class="arcade-cabinet center-cabinet" id="arcade-cabinet">
+                    <div class="marquee chameleon-part"><h1>RHYTHMIK<br><span id="local-name-header">OVERKILL</span></h1></div>
+                    <div class="screen-section">
+                        <div class="screen-housing chameleon-part"></div>
+                        <div class="monitor-glass">
+                            <div id="scale-wrapper">
+                                <div id="game-container">
+                                    <!-- IN-GAME HUD -->
+                                    <div id="ui-layer" class="hidden">
+                                        <div>SCORE: <br><span id="score" style="display:inline-block; margin-top:10px;">0</span></div>
+                                        <div id="lives-container">♥♥♥</div>
+                                        <div style="text-align: right;">
+                                            <div id="combo-container">COMBO: <span id="combo">0</span><span id="multiplier">x1</span><br><span id="round-ui" style="color:#0ff; font-size:10px; margin-top:10px; display:block;">ROUND 1</span></div>
+                                            <div style="margin-top:15px; color:#ffaa00; font-size:12px; text-shadow: 2px 2px 0 #000;">COINS: <span id="session-coins">0</span></div>
+                                        </div>
+                                    </div>
+                                    <div id="track-info" class="hidden">NOW PLAYING: <span id="current-track">NONE</span></div>
+                                    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+                                    <!-- INTRO SCREEN -->
+                                    <div id="intro-screen" class="overlay">
+                                        <div class="intro-content">
+                                            <h1 class="chromatic-title">RHYTHMIK</h1>
+                                            <p class="blink press-enter-text">PRESS ENTER</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- LOGIN & ALIAS SCREEN -->
+                                    <div id="alias-screen" class="overlay hidden">
+                                        <h1>RHYTHMIK</h1>
+                                        <h2 style="color: #ff0055; font-size:10px; margin-bottom:15px;">AUTHENTICATION REQUIRED</h2>
+                                        <button id="btn-google-login" class="selected-btn" style="background:#4285F4; color:#fff; font-size:11px; width:85%; margin-bottom:15px;">LOGIN WITH GMAIL</button>
+                                        <p style="font-size:9px; color:#aaa; margin: 5px 0;">--- OR GUEST ALIAS ---</p>
+                                        <input type="text" id="player-alias" placeholder="ENTER ALIAS" class="retro-input" maxlength="12" style="width:85%; margin-top:10px;">
+                                        <button id="btn-continue" style="margin-top: 5px; width:85%;">GUEST PLAY [ENTER]</button>
+                                    </div>
+
+                                    <!-- LOBBY SCREEN (Nested Structure) -->
+                                    <div id="lobby-screen" class="overlay hidden">
+                                        <div style="display: flex; justify-content: space-between; width: 85%; align-items: center; margin-bottom: 15px;">
+                                            <h2 style="color: #0ff; font-size: 12px; margin:0;">USER: <span id="lobby-username">PLAYER</span></h2>
+                                            <h2 style="color: #ffaa00; font-size: 12px; margin:0;">BANK: <span id="lobby-coins">0</span></h2>
+                                        </div>
+
+                                        <!-- Main Menu -->
+                                        <div id="lobby-main-menu" style="margin: 10px 0; border: 2px dashed #ff0055; padding: 25px; background: rgba(255,0,85,0.1); width: 80%;">
+                                            <h3 style="font-size:14px; margin-bottom:25px; color:#fff;">MAIN MENU</h3>
+                                            <div style="display: flex; flex-direction: column; gap: 15px; align-items: center;">
+                                                <button id="btn-menu-play" class="selected-btn" style="width: 250px;">PLAY</button>
+                                                <button id="btn-menu-purchase" style="width: 250px;">PURCHASE</button>
+                                                <button id="btn-menu-leaderboards" style="width: 250px;">LEADERBOARDS</button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Play Sub-Menu -->
+                                        <div id="lobby-play-menu" class="hidden" style="margin: 10px 0; border: 2px dashed #00f3ff; padding: 25px; background: rgba(0,243,255,0.1); width: 80%;">
+                                            <h3 style="font-size:14px; margin-bottom:25px; color:#fff;">SELECT MODE</h3>
+                                            <div style="display: flex; flex-direction: column; gap: 15px; align-items: center;">
+                                                <button id="btn-play-solo" class="selected-btn" style="width: 250px;">SOLO</button>
+                                                <button id="btn-play-online" style="width: 250px;">ONLINE</button>
+                                                <button id="btn-play-back" style="width: 250px;">BACK</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- PURCHASE SCREEN -->
+                                    <div id="purchase-screen" class="overlay hidden">
+                                        <h2 style="color: #ffaa00; font-size: 16px; margin-bottom: 20px;">PURCHASE TRACKS</h2>
+                                        <div style="color: #fff; font-size: 10px; margin-bottom: 15px;">BANK: <span id="purchase-coins" style="color:#ffaa00;">0</span></div>
+                                        <div id="locked-songs-list" style="width: 85%; max-height: 250px; overflow-y: auto; border: 2px solid #ffaa00; padding: 15px; background: rgba(255,170,0,0.1); text-align: left;">
+                                            <!-- JS Populated -->
+                                        </div>
+                                        <div style="display:flex; gap:10px; margin-top:20px;">
+                                            <button id="btn-purchase-buy" class="selected-btn" style="width:200px;">BUY [ENTER]</button>
+                                            <button id="btn-purchase-back" style="width:200px;">BACK [ESC]</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- LEADERBOARDS SCREEN -->
+                                    <div id="leaderboards-screen" class="overlay hidden">
+                                        <h2 style="color: #0ff; font-size: 16px; margin-bottom: 20px;">GLOBAL RANKINGS</h2>
+                                        <div id="full-leaderboard-list" style="width: 85%; height: 350px; overflow-y: auto; border: 2px solid #0ff; padding: 15px; background: rgba(0,255,255,0.1); text-align: left; font-size: 12px; line-height: 2.0;">
+                                            <!-- JS Populated -->
+                                        </div>
+                                        <button id="btn-lb-back" class="selected-btn" style="margin-top:20px; width: 85%;">BACK TO MENU [ESC]</button>
+                                    </div>
+
+                                    <!-- MULTIPLAYER LOBBY -->
+                                    <div id="multiplayer-screen" class="overlay hidden">
+                                        <h2 style="color: #0ff; font-size: 14px; margin-bottom: 20px;">MULTIPLAYER TERMINAL</h2>
+                                        <div style="margin: 10px 0; border: 2px dashed #ff0055; padding: 15px; background: rgba(255,0,85,0.1); width: 80%;">
+                                            <div id="mp-connect">
+                                                <button id="btn-create-room" class="selected-btn" style="width: 80%;">CREATE ROOM</button>
+                                                <p style="font-size:10px; margin: 10px 0; color: #666;">--- OR ---</p>
+                                                <input type="text" id="join-room-id" placeholder="ENTER ROOM CODE" class="retro-input" style="width: 200px; margin: 0 auto 5px auto;">
+                                                <button id="btn-join-room" style="width: 80%;">JOIN ROOM</button>
+                                            </div>
+                                            <div id="mp-host-mode" class="hidden">
+                                                <h3 style="color:#0f0; font-size:12px; margin-bottom:20px;" class="blink">PLAYER 2 JOINED!</h3>
+                                                <p style="font-size:10px; color:#aaa; margin-bottom:15px;">SELECT MATCH TYPE:</p>
+                                                <div style="display: flex; gap: 5px; justify-content: center; margin-bottom: 20px;">
+                                                    <button id="btn-mode-duo" class="selected-btn">DUO CO-OP</button>
+                                                    <button id="btn-mode-1v1">1v1 VERSUS</button>
+                                                </div>
+                                                <p style="font-size:10px; color:#fff;">PRESS ENTER TO CONTINUE</p>
+                                            </div>
+                                            <div id="mp-guest-wait" class="hidden">
+                                                <h3 style="color:#0f0; font-size:12px; margin-bottom:20px;">CONNECTED TO HOST</h3>
+                                                <p class="blink" style="color:#0ff; font-size:10px; line-height: 1.5;">WAITING FOR HOST TO<br>SELECT MODE & SONG...</p>
+                                            </div>
+                                            <div id="room-waiting" class="hidden" style="margin-top:15px; color:#0f0;">
+                                                <p>ROOM CREATED!</p>
+                                                <p style="font-size:20px; margin:10px 0; color:#fff;">CODE: <span id="display-room-id">-----</span></p>
+                                                <p class="blink">WAITING FOR P2 TO JOIN...</p>
+                                            </div>
+                                        </div>
+                                        <button id="btn-mp-back" class="selected-btn" style="margin-top:20px;">BACK TO MENU [ESC]</button>
+                                    </div>
+
+                                    <!-- SONG SELECTION -->
+                                    <div id="start-screen" class="overlay hidden">
+                                        <h1>TYPE RHYTHM</h1>
+                                        <h2 style="color: #ff0055; margin-top:10px;">OVERKILL EDITION</h2>
+                                        <div id="song-selection-display">
+                                            <div style="font-size:10px; color:#aaa; margin-bottom:10px;">USE [◀] / [▶] TO SELECT TRACK</div>
+                                            <span id="center-song-title">MASTER OF PUPPETS</span>
+                                        </div>
+                                        <p style="line-height: 1.8; font-size: 10px; color: #ccc; margin-bottom: 20px;">
+                                            <span style="color:#0f0">+ A +</span> 1-UP | <span style="color:#0ff">~ A ~</span> SLOW | <span style="color:#ff4400">[ A ]</span> NUKE<br>
+                                            <span style="color:#ff0033; font-size:12px; display:inline-block; margin-top:10px; animation: blink 1s infinite;">AVOID: ☠ A ☠ (POISON)</span>
+                                        </p>
+                                        <button id="start-btn" class="selected-btn">START [ENTER]</button>
+                                        <button id="btn-song-back" style="margin-top: 10px;">BACK [ESC]</button>
+                                    </div>
+
+                                    <!-- PAUSE / GAME OVER -->
+                                    <div id="pause-screen" class="overlay hidden">
+                                        <h1 style="color: #ffaa00;">PAUSED</h1>
+                                        <div style="display:flex; flex-direction:column; gap:10px; align-items:center; margin-top: 20px;">
+                                            <button id="resume-btn" class="selected-btn" style="width: 200px;">RESUME</button>
+                                            <button id="quit-btn" style="width: 200px; background-color: #333; color: #fff;">ABORT GAME</button>
+                                        </div>
+                                    </div>
+                                    <div id="game-over-screen" class="overlay hidden">
+                                        <h1 id="game-over-title" style="color: #fff; text-shadow: 0 0 20px #f00;">WASTED</h1>
+                                        <h2 id="conclusion-phrase" style="color: #0ff; font-size: 14px; margin-bottom: 25px; text-shadow: 0 0 10px #0ff; letter-spacing: 2px;"></h2>
+                                        <p style="font-size: 14px; margin-bottom: 5px;">FINAL SCORE: <span id="final-score" style="color:#fff;">0</span></p>
+                                        <p id="high-score-alert" class="hidden blink" style="color: #0f0; font-size:10px; margin-bottom:15px;">NEW HIGH SCORE!</p>
+                                        <p style="font-size: 14px;">COINS BANKED: <span id="earned-coins" style="color:#ffaa00;">+0</span></p>
+                                        <button id="restart-btn" class="selected-btn" style="margin-top:20px;">RETURN [ENTER]</button>
+                                    </div>
+
+                                </div>
+                            </div>
+                            <div class="crt-overlay"></div>
+                        </div>
+                    </div>
+                    <div class="control-panel-wrapper chameleon-part">
+                        <div class="control-panel">
+                            <div class="start-buttons"><div class="p1-start"></div></div>
+                            <div class="joystick-base"><div class="joystick-shaft"></div><div class="joystick-ball"></div></div>
+                            <div class="buttons-container"><div class="action-button btn-red"></div><div class="action-button btn-blue"></div><div class="action-button btn-green"></div></div>
+                        </div>
+                    </div>
+                    <div class="cabinet-base chameleon-part"><div class="coin-door-panel"><div class="coin-slot"><div class="coin-insert"></div><div class="coin-return"></div></div><div class="coin-slot"><div class="coin-insert"></div><div class="coin-return"></div></div></div></div>
+                </div>
+
+                <!-- RIGHT CABINET: LEADERBOARDS & 1v1 OPPONENT -->
+                <div class="arcade-cabinet right-cabinet" id="opponent-cabinet">
+                    <div class="marquee side-chameleon"><h1>RHYTHMIK<br><span id="opp-name-header">RECORDS</span></h1></div>
+                    <div class="screen-section">
+                        <div class="screen-housing side-chameleon"></div>
+                        <div class="monitor-glass">
+                            
+                            <!-- Leaderboard State -->
+                            <div class="side-screen-content" id="right-leaderboards">
+                                <span class="sub" style="color:#ffe600; margin-bottom: 30px;">TOP RHYTHMERS</span>
+                                <div id="right-top-5" style="font-size: 12px; text-align: left; width: 100%; line-height: 2.2;">
+                                    <!-- JS Populated -->
+                                </div>
+                            </div>
+                            
+                            <!-- 1v1 State -->
+                            <div id="scale-wrapper-opp" class="hidden" style="transform: scale(var(--game-scale)); transform-origin: top left; width: 800px; height: 600px;">
+                                <div id="game-container-opp" style="position: relative; width: 800px; height: 600px; border: 4px solid #00f3ff; box-shadow: 0 0 20px #00f3ff; background-color: #000; overflow: hidden;">
+                                    <div id="ui-layer-opp" style="position: absolute; top: 25px; left: 30px; right: 45px; display: flex; justify-content: space-between; align-items: flex-start; z-index: 20; color: #fff; text-shadow: 2px 2px #000;">
+                                        <div>SCORE: <br><span id="score-opp" style="display:inline-block; margin-top:10px; color: var(--neon-cyan);">0</span></div>
+                                        <div id="lives-container-opp" style="font-size: 24px; color: #ff0055; letter-spacing: 5px;">♥♥♥</div>
+                                    </div>
+                                    <canvas id="gameCanvasOpp" width="800" height="600" style="display:block;"></canvas>
+                                    <div class="crt-overlay"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="control-panel-wrapper side-chameleon">
+                        <div class="control-panel">
+                            <div class="start-buttons"><div class="p1-start"></div></div>
+                            <div class="joystick-base"><div class="joystick-shaft"></div><div class="joystick-ball"></div></div>
+                            <div class="buttons-container"><div class="action-button btn-red"></div><div class="action-button btn-blue"></div><div class="action-button btn-green"></div></div>
+                        </div>
+                    </div>
+                    <div class="cabinet-base side-chameleon"><div class="coin-door-panel"><div class="coin-slot"><div class="coin-insert"></div><div class="coin-return"></div></div></div></div>
+                </div>
+
+            </div>
+        </div>
+
+        <script>
+// ==========================================
+// 1. FIREBASE AUTH & WEBRTC SIGNALING
+// ==========================================
+const firebaseConfig = { apiKey: "AIzaSyDHmyoBemXQFOxXsVmwFc5l4LHWKhZHtlI", authDomain: "teamrhythmik.firebaseapp.com", projectId: "teamrhythmik", storageBucket: "teamrhythmik.firebasestorage.app", messagingSenderId: "861227698308", appId: "1:861227698308:web:a9f8802b0565aa7b7f9ad1" };
+if (typeof firebase !== 'undefined' && firebase.apps && !firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+const db = (typeof firebase !== 'undefined' && firebase.firestore) ? firebase.firestore() : null;
+const auth = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth() : null;
+
+let peerConnection = null; let dataChannel = null; let isHost = true; let roomId = null;
+let opponentScore = 0; let opponentLives = 3; let matchDuration = 60; let matchTimerInterval = null; let amIPlayer1 = true;
+const servers = { iceServers: [{ urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }] };
+
+// ==========================================
+// 2. USER PROFILE & DATA INTEGRATION
+// ==========================================
+let currentUsername = localStorage.getItem('rhythmik_alias') || "PLAYER";
+let userData = JSON.parse(localStorage.getItem('rhythmik_data')) || {
+    coins: 0, highScore: 0, highScoreSong: "NONE", unlockedSongs: [0, 1], songScores: {}
+};
+if (!userData.songScores) userData.songScores = {}; // Initialize for legacy saves
+
+// Mock Leaderboard Database Expanded
+let mockLeaderboards = [
+    { name: "OVERKILL", score: 15000, song: "Master of Puppets" },
+    { name: "P1_SMASH", score: 11200, song: "Master of Puppets" },
+    { name: "CYBERNINJA", score: 12400, song: "Enter Sandman" },
+    { name: "RHYTHM_GOD", score: 9800, song: "Shape Of You" },
+    { name: "BEAT_BOY", score: 8700, song: "Shape Of You" },
+    { name: "NOOB_MASTER", score: 7500, song: "Super Mario Bros." },
+    { name: "PIXEL_KING", score: 6800, song: "Super Mario Bros." },
+    { name: "GUEST_99", score: 4200, song: "Creep" },
+    { name: "P1_SMASH", score: 3100, song: "Scourage of Iron" }
+];
+
+const playlist = [
+    { title: "Master of Puppets", src: "audio/master_of_puppets.mp3", fallbackSrc: "audio/mop.mp3", bpm: 212, cost: 0 },
+    { title: "Super Mario Bros.", src: "audio/super_mario_bros.mp3", fallbackSrc: "audio/smb.mp3", bpm: 130, cost: 0 },
+    { title: "Shape Of You", src: "audio/shape_of_you.mp3", fallbackSrc: "audio/shape.mp3", bpm: 150, cost: 50 },
+    { title: "Enter Sandman", src: "audio/enter_sandman.mp3", fallbackSrc: "audio/sandman.mp3", bpm: 180, cost: 100 },
+    { title: "Scourage of Iron", src: "audio/scourage_of_iron.mp3", fallbackSrc: "audio/iron.mp3", bpm: 212, cost: 150 },
+    { title: "Creep", src: "audio/creep.mp3", fallbackSrc: "audio/creep.mp3", bpm: 150, cost: 200 }
+];
+
+let currentSongIndex = 0; 
+
+if (auth) {
+    auth.onAuthStateChanged((user) => {
+        if (user) { 
+            currentUsername = (user.displayName || user.email.split('@')[0]).toUpperCase(); 
+            saveLocalProfile(); 
+        }
+    });
+}
+
+async function loginWithGoogle() {
+    if (!auth) { alert("Firebase Auth is not available."); return; }
+    const provider = new firebase.auth.GoogleAuthProvider();
+    try {
+        const result = await auth.signInWithPopup(provider);
+        currentUsername = (result.user.displayName || result.user.email.split('@')[0]).toUpperCase();
+        saveLocalProfile(); 
+        targetMachinePower = 1.0; // Fix applied here to power up machines after Google login
+        transitionTo('LOBBY_MAIN');
+    } catch (error) { console.error("Google Auth Error:", error); alert("Authentication failed: " + error.message); }
+}
+
+function saveLocalProfile() {
+    localStorage.setItem('rhythmik_alias', currentUsername);
+    localStorage.setItem('rhythmik_data', JSON.stringify(userData));
+    updateSideScreens();
+}
+
+function getSortedLeaderboard() {
+    let lb = [...mockLeaderboards];
+    if (userData.songScores) {
+        for (const [song, score] of Object.entries(userData.songScores)) {
+            if (!lb.find(p => p.name === currentUsername && p.song === song)) {
+                lb.push({ name: currentUsername, score: score, song: song });
+            }
+        }
+    } else if (userData.highScore > 0 && !lb.find(p => p.name === currentUsername)) {
+        lb.push({ name: currentUsername, score: userData.highScore, song: userData.highScoreSong });
+    }
+    return lb.sort((a,b) => b.score - a.score);
+}
+
+function updateSideScreens() {
+    const isOnSongSelect = (uiState === 'START');
+    const currentSongTitle = playlist[currentSongIndex] ? playlist[currentSongIndex].title : "NONE";
+
+    // Left: Personal Data 
+    const la = document.getElementById('left-alias'); if(la) la.innerText = currentUsername;
+    const lc = document.getElementById('left-coins'); if(lc) lc.innerText = userData.coins;
+    const lh = document.getElementById('left-highscore'); 
+    const lhs = document.getElementById('left-hs-song'); 
+    const lt = document.getElementById('left-tracks'); if(lt) lt.innerText = `${userData.unlockedSongs.length} / ${playlist.length}`;
+    const lu = document.getElementById('lobby-username'); if(lu) lu.innerText = currentUsername;
+    const lco = document.getElementById('lobby-coins'); if(lco) lco.innerText = userData.coins;
+
+    if (isOnSongSelect) {
+        if(lh) lh.innerText = (userData.songScores && userData.songScores[currentSongTitle]) ? userData.songScores[currentSongTitle] : 0;
+        if(lhs) lhs.innerText = currentSongTitle;
+    } else {
+        if(lh) lh.innerText = userData.highScore;
+        if(lhs) lhs.innerText = userData.highScoreSong;
+    }
+
+    // Right: Top 5
+    let lbSorted = getSortedLeaderboard();
+    
+    if (isOnSongSelect) {
+        lbSorted = lbSorted.filter(p => p.song === currentSongTitle);
+    }
+    
+    let rightHtml = "";
+    for(let i=0; i < Math.min(5, lbSorted.length); i++) {
+        rightHtml += `<div style="margin-bottom: 12px;"><span style="color:#0f0">${i+1}.</span> <span style="color:#fff">${lbSorted[i].name}</span><br><span style="color:#0ff">${lbSorted[i].score}</span> <span style="color:#aaa; font-size:9px;">[${lbSorted[i].song}]</span></div>`;
+    }
+    if (lbSorted.length === 0 && isOnSongSelect) {
+        rightHtml = `<div style="margin-top: 20px; color:#aaa; font-size: 10px;">NO RECORDS YET</div>`;
+    }
+
+    const rightTop = document.getElementById('right-top-5');
+    if(rightTop) rightTop.innerHTML = rightHtml;
+}
+
+// ==========================================
+// 3. UI STATE MANAGEMENT & DOM ELEMENTS
+// ==========================================
+let uiState = 'SPLASH';
+let lobbyMainSelect = 0; // 0: Play, 1: Purchase, 2: Leaderboards
+let lobbyPlaySelect = 0; // 0: Solo, 1: Online, 2: Back
+let purchaseSelect = 0;
+let mpJoinSelect = 0;
+let mpModeSelect = 0;
+let pauseSelect = 0;
+
+let lockedSongs = [];
+let isSplashActive = true; let isPlaying = false; let isPaused = false;
+let leftCabFlash = 0; let rightCabFlash = 0; let machinePower = 0; let targetMachinePower = 0;
+
+let bgMusic = new Audio(); bgMusic.crossOrigin = "anonymous"; bgMusic.preservesPitch = false;
+let audioCtx, analyser, dataArray, masterGain; let audioUnlocked = false;
+
+// DOM Elements
+const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
+const oppCanvas = document.getElementById('gameCanvasOpp'); const oppCtx = oppCanvas?.getContext('2d');
+const gameContainer = document.getElementById('game-container'); const arcadeRoom = document.getElementById('arcade-room');
+const arcadeCabinet = document.getElementById('arcade-cabinet');
+
+const screens = {
+    INTRO: document.getElementById('intro-screen'),
+    ALIAS: document.getElementById('alias-screen'),
+    LOBBY: document.getElementById('lobby-screen'),
+    LOBBY_MAIN: document.getElementById('lobby-main-menu'),
+    LOBBY_PLAY: document.getElementById('lobby-play-menu'),
+    PURCHASE: document.getElementById('purchase-screen'),
+    LEADERBOARDS: document.getElementById('leaderboards-screen'),
+    MULTIPLAYER: document.getElementById('multiplayer-screen'),
+    START: document.getElementById('start-screen'),
+    PAUSE: document.getElementById('pause-screen'),
+    GAMEOVER: document.getElementById('game-over-screen')
+};
+
+function transitionTo(newState) {
+    uiState = newState;
+    Object.values(screens).forEach(s => { if(s && s.classList) s.classList.add('hidden'); });
+    
+    if(newState.startsWith('LOBBY')) screens.LOBBY.classList.remove('hidden');
+
+    // Camera Panning based on menu selection
+    if (['LOBBY_PLAY', 'MULTIPLAYER', 'PURCHASE', 'LEADERBOARDS'].includes(newState)) {
+        arcadeRoom.classList.add('game-running');
+        arcadeRoom.classList.remove('vs-running');
+    } else if (['LOBBY_MAIN', 'START'].includes(newState)) {
+        arcadeRoom.classList.remove('game-running', 'vs-running');
+    }
+
+    switch(newState) {
+        case 'ALIAS': screens.ALIAS.classList.remove('hidden'); break;
+        case 'LOBBY_MAIN': 
+            screens.LOBBY_MAIN.classList.remove('hidden');
+            lobbyMainSelect = 0; updateLobbyMainUI();
+            break;
+        case 'LOBBY_PLAY':
+            screens.LOBBY_PLAY.classList.remove('hidden');
+            lobbyPlaySelect = 0; updateLobbyPlayUI();
+            break;
+        case 'PURCHASE':
+            screens.PURCHASE.classList.remove('hidden');
+            document.getElementById('purchase-coins').innerText = userData.coins;
+            buildPurchaseList();
+            break;
+        case 'LEADERBOARDS':
+            screens.LEADERBOARDS.classList.remove('hidden');
+            buildFullLeaderboard();
+            break;
+        case 'MULTIPLAYER':
+            screens.MULTIPLAYER.classList.remove('hidden');
+            document.getElementById('mp-connect').classList.remove('hidden');
+            document.getElementById('mp-host-mode').classList.add('hidden');
+            document.getElementById('mp-guest-wait').classList.add('hidden');
+            document.getElementById('room-waiting').classList.add('hidden');
+            mpJoinSelect = 0; updateMpJoinUI();
+            break;
+        case 'START':
+            screens.START.classList.remove('hidden');
+            updateSongDisplays(); startMenuMusic(true);
+            break;
+        case 'GAMEOVER': screens.GAMEOVER.classList.remove('hidden'); break;
+    }
+    updateSideScreens(); // Always update side screens based on state
+}
+
+function updateLobbyMainUI() {
+    ['btn-menu-play', 'btn-menu-purchase', 'btn-menu-leaderboards'].forEach((id, i) => {
+        const b = document.getElementById(id); if(b) b.classList.toggle('selected-btn', i === lobbyMainSelect);
+    });
+}
+function updateLobbyPlayUI() {
+    ['btn-play-solo', 'btn-play-online', 'btn-play-back'].forEach((id, i) => {
+        const b = document.getElementById(id); if(b) b.classList.toggle('selected-btn', i === lobbyPlaySelect);
+    });
+}
+function buildPurchaseList() {
+    lockedSongs = playlist.map((s, i) => ({...s, index: i})).filter((s, i) => !userData.unlockedSongs.includes(i));
+    purchaseSelect = 0;
+    renderPurchaseUI();
+}
+function renderPurchaseUI() {
+    const list = document.getElementById('locked-songs-list');
+    if(lockedSongs.length === 0) { list.innerHTML = "<p style='color:#0f0; text-align:center;'>ALL TRACKS ACQUIRED</p>"; return; }
+    
+    let html = "";
+    lockedSongs.forEach((s, i) => {
+        const isSel = i === purchaseSelect;
+        html += `<div style="padding: 10px; margin-bottom: 5px; background: ${isSel ? 'rgba(255,170,0,0.3)' : 'transparent'}; border: ${isSel ? '1px solid #ffaa00' : '1px solid transparent'};">`;
+        html += `<span style="color:#fff;">${s.title}</span><br>`;
+        html += `<span style="color:#ffaa00; font-size:10px;">COST: ${s.cost} COINS</span>`;
+        html += `</div>`;
+    });
+    list.innerHTML = html;
+}
+function buildFullLeaderboard() {
+    const lbSorted = getSortedLeaderboard();
+    const list = document.getElementById('full-leaderboard-list');
+    let html = "";
+    lbSorted.forEach((p, i) => {
+        html += `<div style="display:flex; justify-content:space-between; border-bottom: 1px dashed #0ff; padding-bottom: 10px; margin-bottom: 10px;">
+                    <div><span style="color:#0f0">${i+1}.</span> <span style="color:#fff">${p.name}</span><br><span style="color:#aaa; font-size:10px;">${p.song}</span></div>
+                    <div style="color:#0ff; font-size: 16px;">${p.score}</div>
+                 </div>`;
+    });
+    list.innerHTML = html;
+}
+function updateMpJoinUI() {
+    const createBtn = document.getElementById('btn-create-room'); const joinBtn = document.getElementById('btn-join-room'); const joinInput = document.getElementById('join-room-id');
+    if(createBtn) createBtn.classList.toggle('selected-btn', mpJoinSelect === 0);
+    if(joinBtn) joinBtn.classList.toggle('selected-btn', mpJoinSelect === 1);
+    if(joinInput) { if(mpJoinSelect === 1) { joinInput.focus(); joinInput.style.borderColor = '#ff0055'; } else { joinInput.blur(); joinInput.style.borderColor = '#0ff'; } }
+}
+function updateMpModeUI() {
+    const duo = document.getElementById('btn-mode-duo'); const vs = document.getElementById('btn-mode-1v1');
+    if(duo) duo.classList.toggle('selected-btn', mpModeSelect === 0);
+    if(vs) vs.classList.toggle('selected-btn', mpModeSelect === 1);
+}
+function updatePauseUI() {
+    const rBtn = document.getElementById('resume-btn'); const qBtn = document.getElementById('quit-btn');
+    if(rBtn) rBtn.classList.toggle('selected-btn', pauseSelect === 0);
+    if(qBtn) qBtn.classList.toggle('selected-btn', pauseSelect === 1);
+}
+function updateSongDisplays() {
+    if(playlist.length === 0) return;
+    const centerTitle = document.getElementById('center-song-title');
+    if(centerTitle) centerTitle.innerText = `◀ ${playlist[currentSongIndex].title} ▶`;
+
+    const startBtn = document.getElementById('start-btn');
+    if (userData.unlockedSongs.includes(currentSongIndex)) {
+        if(startBtn && (gameMode === 'solo' || isHost)) { startBtn.innerText = "START [ENTER]"; startBtn.style.color = "#0f0"; }
+    } else {
+        if(startBtn && (gameMode === 'solo' || isHost)) { startBtn.innerText = "LOCKED"; startBtn.style.color = "#ff0033"; }
+    }
+}
+function cycleTrack(direction) {
+    playMenuSelectSound();
+    currentSongIndex = (currentSongIndex + direction + playlist.length) % playlist.length;
+    updateSongDisplays(); 
+    updateSideScreens(); // Force update of song-specific side screen data
+    startMenuMusic();
+    
+    if (arcadeRoom) {
+        arcadeRoom.classList.remove('shift-left', 'shift-right');
+        void arcadeRoom.offsetWidth; // Force DOM reflow to restart the animation
+        arcadeRoom.classList.add(direction < 0 ? 'shift-left' : 'shift-right');
+    }
+}
+
+function fitArcade() {
+    const scaler = document.getElementById('arcade-scaler'); if (!scaler) return;
+    const factor = isSplashActive ? 0.62 : 0.72;
+    const scale = Math.min((window.innerWidth * factor) / 1000, (window.innerHeight * factor) / 1250);
+    scaler.style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', fitArcade); fitArcade();
+
+// Core game arrays & variables
+let activeLetters = []; let activeWord = null; let floatingTexts = []; let particles = []; let opponentFloatingTexts = []; let opponentParticles = [];
+let gameMode = 'solo'; let score = 0; let sessionCoins = 0; let currentRound = 1; let comboCount = 0; let comboMultiplier = 1; let lives = 3; const MAX_LIVES = 5;
+let nextSpawnTime = 0; let beatInterval = 0; let targetPlaybackRate = 1.0; let currentPlaybackRate = 1.0; let targetFallSpeed = 200; let currentFallSpeed = 200;
+let lastTime = 0; let songTime = 0; let arcadeShakeIntensity = 0; let hitZoom = 0; let slowMoTimer = 0; let menuFadeInterval;
+window.musicReaction = 0; window.musicHue = 0;
+const comboColors = ['#fff', '#00ffcc', '#ffaa00', '#ff0055', '#b300ff', '#ff0000'];
+const bgCanvas = document.getElementById('bg-canvas'); const bgCtx = bgCanvas.getContext('2d');
+const leftCab = document.querySelector('.left-cabinet'); const rightCab = document.querySelector('.right-cabinet');
+
+function resizeBackground() { bgCanvas.width = window.innerWidth; bgCanvas.height = window.innerHeight; }
+window.addEventListener('resize', resizeBackground); resizeBackground();
+
+// ==========================================
+// 4. AUDIO & VISUALIZER
+// ==========================================
+function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!masterGain) {
+        analyser = audioCtx.createAnalyser(); analyser.fftSize = 128; masterGain = audioCtx.createGain(); 
+        const audioSource = audioCtx.createMediaElementSource(bgMusic);
+        audioSource.connect(analyser); analyser.connect(masterGain); masterGain.connect(audioCtx.destination); 
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+    }
+}
+drawBackground();
+
+function unlockAudio() { if (audioUnlocked) return; initAudio(); if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); audioUnlocked = true; }
+window.addEventListener('click', unlockAudio, { once: true }); window.addEventListener('keydown', unlockAudio, { once: true });
+
+function startMenuMusic(fadeIn = false) {
+    if (!audioUnlocked || isPlaying) return;
+    clearInterval(menuFadeInterval);
+    const track = playlist[currentSongIndex];
+    bgMusic.src = track.src; bgMusic.loop = true; currentPlaybackRate = 1.0; bgMusic.playbackRate = 1.0;
+    if (fadeIn && masterGain) {
+        masterGain.gain.value = 0;
+        bgMusic.play().catch(() => { if (track.fallbackSrc) { bgMusic.src = track.fallbackSrc; bgMusic.play().catch(()=>{}); } });
+        let fadeVol = 0;
+        menuFadeInterval = setInterval(() => {
+            fadeVol += 0.01;
+            if (fadeVol >= 0.4) { masterGain.gain.value = 0.4; clearInterval(menuFadeInterval); } else { masterGain.gain.value = fadeVol; }
+        }, 100);
+    } else {
+        if (masterGain) masterGain.gain.value = 0.4;
+        bgMusic.play().catch(() => { if (track.fallbackSrc) { bgMusic.src = track.fallbackSrc; bgMusic.play().catch(()=>{}); } });
+    }
+}
+
+function drawBackground() {
+    requestAnimationFrame(drawBackground);
+    machinePower += (targetMachinePower - machinePower) * 0.015;
+    let rawReaction = 0, bassSum = 0, bassCount = 1;
+    if (analyser && dataArray) {
+        analyser.getByteFrequencyData(dataArray); bassCount = Math.floor(dataArray.length / 4);
+        for (let i = 0; i < bassCount; i++) bassSum += dataArray[i];
+        rawReaction = (bassCount > 0 ? (bassSum / bassCount) : 0) / 255;
+        window.musicHue = ((bassSum / bassCount) * 1.5) % 360;
+    }
+    
+    // Smooth the reaction variable to ensure gradual visualizer transitions (no abrupt stops/starts)
+    window.smoothedReaction = window.smoothedReaction || 0;
+    window.smoothedReaction += (rawReaction - window.smoothedReaction) * 0.05;
+    let reaction = window.smoothedReaction;
+    window.musicReaction = reaction;
+
+    bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+    const cx = bgCanvas.width / 2; const cy = bgCanvas.height / 2;
+    
+    if (uiState !== 'PLAYING' && uiState !== 'PAUSED' && uiState !== 'GAMEOVER' && uiState !== 'SPLASH') {
+        const grad = bgCtx.createRadialGradient(cx, cy, 0, cx, cy, reaction * (cx * 1.2) + 150);
+        grad.addColorStop(0, `hsla(${window.musicHue}, 90%, 50%, ${(0.1 + reaction * 0.2) * machinePower})`); grad.addColorStop(1, `transparent`);
+        bgCtx.fillStyle = grad; bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+        
+        if (dataArray) {
+            const barWidth = Math.ceil(bgCanvas.width / dataArray.length) * 2;
+            window.smoothedDataArray = window.smoothedDataArray || new Float32Array(dataArray.length);
+            for (let i = 0; i < dataArray.length; i++) {
+                // Smooth visualizer bars
+                window.smoothedDataArray[i] += (dataArray[i] - (window.smoothedDataArray[i] || 0)) * 0.05;
+                const heightPct = window.smoothedDataArray[i] / 255; 
+                const barHeight = heightPct * bgCanvas.height * 1.2 * machinePower;
+                let barGrad = bgCtx.createLinearGradient(0, bgCanvas.height, 0, bgCanvas.height - barHeight);
+                barGrad.addColorStop(0, `hsla(${(window.musicHue + i*3) % 360}, 100%, 20%, ${0.8 * machinePower})`);
+                barGrad.addColorStop(1, `hsla(${(window.musicHue + i*3) % 360}, 100%, 60%, ${0.8 * machinePower})`);
+                bgCtx.fillStyle = barGrad; bgCtx.fillRect(i * barWidth, bgCanvas.height - barHeight, barWidth + 1, barHeight);
+            }
+        }
+    } else {
+        const grad = bgCtx.createRadialGradient(cx, cy, 0, cx, cy, reaction * (cx * 1.2) + 150);
+        grad.addColorStop(0, `hsla(${window.musicHue}, 90%, 50%, ${(0.05 + reaction * 0.1) * machinePower})`); grad.addColorStop(1, `transparent`);
+        bgCtx.fillStyle = grad; bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+    }
+
+    let dynBright = 0.1 + (0.55 + reaction * 0.5) * machinePower; let gray = 1 - machinePower;
+    if (leftCab) { leftCab.style.filter = `grayscale(${gray}) hue-rotate(${window.musicHue}deg) brightness(${dynBright}) contrast(1.2)`; leftCab.style.boxShadow = `0 40px 100px rgba(0,0,0,1), 0 0 ${50 + reaction * 250}px hsla(${window.musicHue}, 100%, 60%, ${reaction * 0.8 * machinePower})`; }
+    if (rightCab) { rightCab.style.filter = `grayscale(${gray}) hue-rotate(${window.musicHue}deg) brightness(${dynBright}) contrast(1.2)`; rightCab.style.boxShadow = `0 40px 100px rgba(0,0,0,1), 0 0 ${50 + reaction * 250}px hsla(${window.musicHue}, 100%, 60%, ${reaction * 0.8 * machinePower})`; }
+    if (arcadeCabinet) {
+        const parts = arcadeCabinet.querySelectorAll('.chameleon-part');
+        if (slowMoTimer <= 0) {
+            parts.forEach(p => { 
+                if (!p.classList.contains('flash-nuke') && !p.classList.contains('flash-1up') && !p.classList.contains('flash-combo') && !p.classList.contains('flash-skull')) {
+                    p.style.animation = 'none'; p.style.filter = (uiState === 'PLAYING') ? `hue-rotate(${window.musicHue}deg) brightness(${1 + reaction * 0.5})` : `grayscale(${gray}) hue-rotate(${window.musicHue}deg) brightness(${dynBright}) contrast(1.2)`; 
+                }
+            });
+            arcadeCabinet.style.boxShadow = (uiState === 'PLAYING') ? `0 40px 100px rgba(0,0,0,1), 0 0 ${100 + reaction * 400}px hsla(${window.musicHue}, 100%, 60%, ${0.5 + reaction * 0.5})` : `0 40px 100px rgba(0,0,0,1), 0 0 ${50 + reaction * 200}px hsla(${window.musicHue}, 100%, 50%, ${reaction * 0.6 * machinePower})`;
+        }
+    }
+}
+
+// Audio triggers
+function playMenuSelectSound() { if (audioCtx) playTone(600, 'square', audioCtx.currentTime, 0.05, 0.2); }
+function playCoinSound() { if (audioCtx) { playTone(987.77, 'square', audioCtx.currentTime, 0.08, 0.3); playTone(1318.51, 'square', audioCtx.currentTime + 0.08, 0.4, 0.3); } }
+function playTone(f, type, t, dur, vol, dFreq = null) { if (!audioCtx) return; const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.type = type; osc.frequency.setValueAtTime(f, t); if (dFreq) osc.frequency.exponentialRampToValueAtTime(dFreq, t + dur); gain.gain.setValueAtTime(vol, t); gain.gain.exponentialRampToValueAtTime(0.001, t + dur); osc.connect(gain); gain.connect(audioCtx.destination); osc.start(t); osc.stop(t + dur); }
+function playHitSound() { if (!audioCtx) return; playTone(1200, 'square', audioCtx.currentTime, 0.05, 0.15, 800); }
+function play1UPSound() { if (audioCtx) { playTone(523.25, 'square', audioCtx.currentTime, 0.1, 0.3); playTone(659.25, 'square', audioCtx.currentTime + 0.1, 0.1, 0.3); playTone(783.99, 'square', audioCtx.currentTime + 0.2, 0.3, 0.3); } }
+function playNukeSound() { if (!audioCtx) return; const t = audioCtx.currentTime; playTone(440, 'sine', t, 0.4, 0.2, 880); playTone(554.37, 'sine', t + 0.1, 0.4, 0.2, 1108.73); playTone(220, 'triangle', t, 1.0, 0.2, 110); }
+function playSlowMoSound() { if (audioCtx) playTone(800, 'sine', audioCtx.currentTime, 1.0, 0.5, 100); }
+function playDamageSound() { if (audioCtx) { playTone(400, 'square', audioCtx.currentTime, 0.1, 0.3, 300); playTone(200, 'square', audioCtx.currentTime + 0.2, 0.2, 0.3, 100); } }
+
+function animateHardwareDeck(char) {
+    const cb = document.querySelector('.center-cabinet .joystick-ball'); const btns = document.querySelectorAll('.center-cabinet .action-button');
+    if (cb) { const offset = ((char.charCodeAt(0) - 65) % 3) - 1; cb.style.transform = `translate(${offset * 14}px, -4px) scale(0.95)`; setTimeout(() => { cb.style.transform = ''; }, 110); }
+    if (btns.length > 0) { const btn = btns[Math.floor(Math.random() * btns.length)]; btn.style.transform = 'translateY(6px)'; btn.style.filter = 'brightness(2.2)'; setTimeout(() => { btn.style.transform = ''; btn.style.filter = ''; }, 90); }
+}
+
+// ==========================================
+// 5. KEYBOARD INPUT ENGINE
+// ==========================================
+const btnContinue = document.getElementById('btn-continue');
+if (btnContinue) {
+    btnContinue.addEventListener('click', () => {
+        const inputAlias = document.getElementById('player-alias');
+        currentUsername = (inputAlias && inputAlias.value.trim().toUpperCase()) || "PLAYER";
+        saveLocalProfile(); transitionTo('LOBBY_MAIN'); targetMachinePower = 1.0;
+    });
+}
+const btnGoogleLogin = document.getElementById('btn-google-login');
+if (btnGoogleLogin) btnGoogleLogin.addEventListener('click', loginWithGoogle);
+
+// Bind Explicit Click Listeners to Multiplayer Buttons
+const btnCreateRoom = document.getElementById('btn-create-room');
+if (btnCreateRoom) btnCreateRoom.addEventListener('click', () => { playMenuSelectSound(); createRoom(); });
+
+const btnJoinRoom = document.getElementById('btn-join-room');
+if (btnJoinRoom) btnJoinRoom.addEventListener('click', () => { playMenuSelectSound(); joinRoom(); });
+
+window.addEventListener('keydown', (e) => {
+    if (document.activeElement.tagName === 'INPUT' && e.key === 'Enter') {
+        playMenuSelectSound();
+        if (uiState === 'ALIAS' && btnContinue) btnContinue.click();
+        else if (uiState === 'MULTIPLAYER') { joinRoom(); }
+        return; 
+    }
+    if (document.activeElement.tagName === 'INPUT') return;
+
+    if (uiState === 'PLAYING') {
+        if (e.key === 'Escape') { togglePause(); return; }
+        const key = e.key.toUpperCase(); animateHardwareDeck(key);
+
+        if (activeWord) {
+            if (key === activeWord.text[activeWord.progress]) {
+                activeWord.progress++; playHitSound(); arcadeShakeIntensity = Math.max(arcadeShakeIntensity, 20); hitZoom = 0.03;
+                if (gameMode !== 'solo') broadcast({ type: 'HIT_WORD', key: key });
+                if (activeWord.progress >= activeWord.text.length) {
+                    score += 50 * comboMultiplier; sessionCoins += 10;
+                    floatingTexts.push({ text: "WORD CLEARED! +10 COINS", x: activeWord.x, y: activeWord.y, life: 1.5, size: 16, color: '#ffaa00' });
+                    createExplosion(activeWord.x, activeWord.y, '#00ffcc', 1.5); activeWord = null;
+                }
+                return; 
+            }
+        }
+        let targetIndex = -1; let maxY = -100;
+        for (let i = 0; i < activeLetters.length; i++) { if (activeLetters[i].char === key && activeLetters[i].y > maxY) { maxY = activeLetters[i].y; targetIndex = i; } }
+
+        if (targetIndex !== -1) {
+            const letter = activeLetters[targetIndex];
+            if (gameMode === 'duo' && letter.targetPlayer !== 0) { const myId = isHost ? 1 : 2; if (letter.targetPlayer !== myId) return; }
+            activeLetters.splice(targetIndex, 1);
+            if (gameMode !== 'solo') broadcast({ type: 'HIT_LETTER', id: letter.id });
+            if (letter.type === 'normal') playHitSound(); else triggerPowerUp(letter);
+            
+            arcadeShakeIntensity = Math.max(arcadeShakeIntensity, 35); hitZoom = 0.03; comboCount++; 
+            if (comboCount > 0 && comboCount % 6 === 0) comboMultiplier++;
+            
+            if (letter.type === 'normal') {
+                score += 10 * comboMultiplier; sessionCoins += 1;
+                floatingTexts.push({ text: "+1 COIN", x: letter.x, y: letter.y + 20, life: 1.0, size: 10, color: '#ffaa00' });
+                floatingTexts.push({ text: "+" + (10 * comboMultiplier), x: letter.x, y: letter.y, life: 1.0, size: 16, color: '#fff' });
+            }
+            targetFallSpeed = Math.min(800, targetFallSpeed + 2); updateUI();
+            if (gameMode === '1v1') { broadcast({ type: 'SYNC_STATE', score: score, lives: lives }); updateVsMeter(); }
+        }
+        return;
+    }
+
+    switch(uiState) {
+        case 'SPLASH':
+            if (e.key === 'Enter') { unlockAudio(); isSplashActive = false; fitArcade(); arcadeRoom.classList.remove('zoomed-in-view'); targetMachinePower = 0.0; transitionTo('ALIAS'); }
+            break;
+        case 'ALIAS':
+            if (e.key === 'g' || e.key === 'G') loginWithGoogle();
+            else if (e.key === 'Enter' && btnContinue) { playMenuSelectSound(); btnContinue.click(); }
+            break;
+        case 'LOBBY_MAIN':
+            if (e.key === 'ArrowUp') { lobbyMainSelect = (lobbyMainSelect - 1 + 3) % 3; playMenuSelectSound(); updateLobbyMainUI(); }
+            else if (e.key === 'ArrowDown') { lobbyMainSelect = (lobbyMainSelect + 1) % 3; playMenuSelectSound(); updateLobbyMainUI(); }
+            else if (e.key === 'Enter') {
+                playMenuSelectSound();
+                if (lobbyMainSelect === 0) transitionTo('LOBBY_PLAY');
+                else if (lobbyMainSelect === 1) transitionTo('PURCHASE');
+                else if (lobbyMainSelect === 2) transitionTo('LEADERBOARDS');
+            }
+            break;
+        case 'LOBBY_PLAY':
+            if (e.key === 'ArrowUp') { lobbyPlaySelect = (lobbyPlaySelect - 1 + 3) % 3; playMenuSelectSound(); updateLobbyPlayUI(); }
+            else if (e.key === 'ArrowDown') { lobbyPlaySelect = (lobbyPlaySelect + 1) % 3; playMenuSelectSound(); updateLobbyPlayUI(); }
+            else if (e.key === 'Enter') {
+                playMenuSelectSound();
+                if (lobbyPlaySelect === 0) { gameMode = 'solo'; isHost = true; document.getElementById('local-name-header').innerText = currentUsername; transitionTo('START'); }
+                else if (lobbyPlaySelect === 1) { transitionTo('MULTIPLAYER'); }
+                else if (lobbyPlaySelect === 2) { transitionTo('LOBBY_MAIN'); }
+            }
+            else if (e.key === 'Escape') { playMenuSelectSound(); transitionTo('LOBBY_MAIN'); }
+            break;
+        case 'PURCHASE':
+            if (e.key === 'ArrowUp') { purchaseSelect = (purchaseSelect - 1 + lockedSongs.length) % lockedSongs.length; playMenuSelectSound(); renderPurchaseUI(); }
+            else if (e.key === 'ArrowDown') { purchaseSelect = (purchaseSelect + 1) % lockedSongs.length; playMenuSelectSound(); renderPurchaseUI(); }
+            else if (e.key === 'Escape') { playMenuSelectSound(); transitionTo('LOBBY_MAIN'); }
+            else if (e.key === 'Enter') {
+                if (lockedSongs.length > 0) {
+                    const selSong = lockedSongs[purchaseSelect];
+                    if (userData.coins >= selSong.cost) {
+                        userData.coins -= selSong.cost; userData.unlockedSongs.push(selSong.index);
+                        saveLocalProfile(); play1UPSound(); buildPurchaseList(); document.getElementById('purchase-coins').innerText = userData.coins;
+                        arcadeCabinet.classList.add('flash-1up'); setTimeout(() => arcadeCabinet.classList.remove('flash-1up'), 400);
+                    } else {
+                        playDamageSound(); arcadeShakeIntensity = 20;
+                        arcadeCabinet.classList.add('flash-skull'); setTimeout(() => arcadeCabinet.classList.remove('flash-skull'), 200);
+                    }
+                }
+            }
+            break;
+        case 'LEADERBOARDS':
+            if (e.key === 'Escape' || e.key === 'Enter') { playMenuSelectSound(); transitionTo('LOBBY_MAIN'); }
+            break;
+        case 'MULTIPLAYER':
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { mpJoinSelect = mpJoinSelect === 0 ? 1 : 0; playMenuSelectSound(); updateMpJoinUI(); }
+            else if (e.key === 'Enter') { playMenuSelectSound(); if (mpJoinSelect === 0) createRoom(); else joinRoom(); }
+            else if (e.key === 'Escape') { playMenuSelectSound(); transitionTo('LOBBY_PLAY'); }
+            break;
+        case 'MP_MODE_SELECT':
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { mpModeSelect = mpModeSelect === 0 ? 1 : 0; playMenuSelectSound(); updateMpModeUI(); }
+            else if (e.key === 'Enter') {
+                playMenuSelectSound(); gameMode = ['duo', '1v1'][mpModeSelect]; broadcast({ type: 'GOTO_SONG_SELECT', mode: gameMode });
+                transitionTo('START');
+            }
+            break;
+        case 'START':
+            if (e.key === 'ArrowLeft') { if (gameMode !== 'solo' && !isHost) return; cycleTrack(-1); if (gameMode !== 'solo' && isHost) broadcast({ type: 'CYCLE_TRACK', dir: -1 }); }
+            else if (e.key === 'ArrowRight') { if (gameMode !== 'solo' && !isHost) return; cycleTrack(1); if (gameMode !== 'solo' && isHost) broadcast({ type: 'CYCLE_TRACK', dir: 1 }); }
+            else if (e.key === 'Enter') {
+                if (gameMode !== 'solo' && !isHost) return;
+                playMenuSelectSound(); 
+                if (userData.unlockedSongs.includes(currentSongIndex)) {
+                    if (gameMode !== 'solo') broadcast({ type: 'START_GAME', songIndex: currentSongIndex }); startGameSequence();
+                } else {
+                    playDamageSound(); arcadeShakeIntensity = 20;
+                    arcadeCabinet.classList.add('flash-skull'); setTimeout(() => arcadeCabinet.classList.remove('flash-skull'), 200);
+                }
+            } else if (e.key === 'Escape') {
+                if (gameMode !== 'solo' && !isHost) return;
+                playMenuSelectSound(); bgMusic.pause(); transitionTo(gameMode === 'solo' ? 'LOBBY_PLAY' : 'LOBBY_MAIN');
+            }
+            break;
+        case 'PAUSED':
+            if (e.key === 'Escape') togglePause();
+            else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { pauseSelect = pauseSelect === 0 ? 1 : 0; playMenuSelectSound(); updatePauseUI(); }
+            else if (e.key === 'Enter') { playMenuSelectSound(); if (pauseSelect === 0) togglePause(); else quitGame(); }
+            break;
+        case 'GAMEOVER':
+            if (e.key === 'Enter') { playMenuSelectSound(); quitGame(true); }
+            break;
+    }
+});
+
+// ==========================================
+// 6. WEBRTC MULTIPLAYER SIGNALING VIA FIRESTORE
+// ==========================================
+async function createRoom() {
+    if (!db) { alert("Firebase Database is not initialized."); return; }
+    document.getElementById('mp-connect').classList.add('hidden'); document.getElementById('room-waiting').classList.remove('hidden');
+    peerConnection = new RTCPeerConnection(servers); dataChannel = peerConnection.createDataChannel('gameData'); setupDataChannel(dataChannel);
+    roomId = Math.random().toString(36).substring(2, 7).toUpperCase(); document.getElementById('display-room-id').innerText = roomId;
+    const roomRef = db.collection('rooms').doc(roomId); 
+    
+    collectIceCandidates(roomRef, peerConnection, 'callerCandidates', 'calleeCandidates');
+    
+    const offer = await peerConnection.createOffer(); await peerConnection.setLocalDescription(offer);
+    await roomRef.set({ roomId: roomId, hostName: currentUsername, mode: gameMode, offer: { type: offer.type, sdp: offer.sdp } });
+    
+    roomRef.onSnapshot(async snapshot => { 
+        const data = snapshot.data(); 
+        if (data && data.answer && !peerConnection.currentRemoteDescription) { 
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer)); 
+            if (peerConnection.iceQueue) {
+                for (let cand of peerConnection.iceQueue) {
+                    await peerConnection.addIceCandidate(cand).catch(e => console.error(e));
+                }
+                peerConnection.iceQueue = [];
+            }
+        } 
+    });
+}
+
+async function joinRoom() {
+    if (!db) { alert("Firebase Database is not initialized."); return; }
+    const inputId = document.getElementById('join-room-id').value.trim().toUpperCase(); if (inputId.length < 5) { alert("PLEASE ENTER A VALID 5-CHARACTER ROOM CODE."); return; }
+    isHost = false; const roomRef = db.collection('rooms').doc(inputId); const docSnap = await roomRef.get();
+    if (!docSnap.exists) { alert("ROOM NOT FOUND. CHECK THE CODE AND TRY AGAIN."); return; }
+    const roomData = docSnap.data(); gameMode = roomData.mode;
+    
+    peerConnection = new RTCPeerConnection(servers); peerConnection.ondatachannel = event => { dataChannel = event.channel; setupDataChannel(dataChannel); };
+    collectIceCandidates(roomRef, peerConnection, 'calleeCandidates', 'callerCandidates');
+    
+    const offer = roomData.offer; 
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    
+    if (peerConnection.iceQueue) {
+        for (let cand of peerConnection.iceQueue) {
+            await peerConnection.addIceCandidate(cand).catch(e => console.error(e));
+        }
+        peerConnection.iceQueue = [];
+    }
+    
+    const answer = await peerConnection.createAnswer(); await peerConnection.setLocalDescription(answer);
+    await roomRef.update({ answer: { type: answer.type, sdp: answer.sdp }, guestName: currentUsername });
+}
+
+function collectIceCandidates(roomRef, pc, localName, remoteName) {
+    const localCollection = roomRef.collection(localName); const remoteCollection = roomRef.collection(remoteName);
+    
+    pc.onicecandidate = event => { if (event.candidate) localCollection.add(event.candidate.toJSON()); };
+    pc.iceQueue = pc.iceQueue || [];
+    
+    remoteCollection.onSnapshot(snapshot => { 
+        snapshot.docChanges().forEach(async change => { 
+            if (change.type === 'added') {
+                const cand = new RTCIceCandidate(change.doc.data());
+                if (pc.remoteDescription && pc.remoteDescription.type) {
+                    await pc.addIceCandidate(cand).catch(e => console.error(e));
+                } else {
+                    pc.iceQueue.push(cand);
+                }
+            } 
+        }); 
+    });
+}
+
+function setupDataChannel(dc) {
+    dc.onopen = () => {
+        amIPlayer1 = isHost; document.getElementById('local-name-header').innerText = currentUsername;
+        document.getElementById('mp-connect').classList.add('hidden'); document.getElementById('room-waiting').classList.add('hidden');
+        if (isHost) { uiState = 'MP_MODE_SELECT'; mpModeSelect = 0; updateMpModeUI(); document.getElementById('mp-host-mode').classList.remove('hidden'); } 
+        else { uiState = 'MP_GUEST_WAIT'; document.getElementById('mp-guest-wait').classList.remove('hidden'); document.getElementById('opp-name-header').innerText = "HOST"; }
+    };
+    dc.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'GOTO_SONG_SELECT') {
+            gameMode = msg.mode; transitionTo('START');
+            const startBtn = document.getElementById('start-btn');
+            if (startBtn) { startBtn.innerText = "WAITING FOR HOST"; startBtn.style.color = "#888"; }
+        } else if (msg.type === 'CYCLE_TRACK') cycleTrack(msg.dir);
+        else if (msg.type === 'START_GAME') { currentSongIndex = msg.songIndex; startGameSequence(); }
+        else if (msg.type === 'SPAWN_LETTER') activeLetters.push(msg.letter); 
+        else if (msg.type === 'SPAWN_WORD') activeWord = msg.word;
+        else if (msg.type === 'HIT_WORD') { if (activeWord) { activeWord.progress++; if (activeWord.progress >= activeWord.text.length) activeWord = null; } }
+        else if (msg.type === 'HIT_LETTER') {
+            const idx = activeLetters.findIndex(l => l.id === msg.id);
+            if (idx > -1) {
+                const letter = activeLetters[idx]; createOpponentExplosion(letter.x, letter.y, '#ff0055', 1.0);
+                opponentFloatingTexts.push({ text: "HIT!", x: letter.x, y: letter.y, life: 1.0, size: 12, color: '#ff0055' });
+                activeLetters.splice(idx, 1);
+            }
+        } else if (msg.type === 'SYNC_STATE') { opponentScore = msg.score; opponentLives = msg.lives; updateVsMeter(); updateOpponentUI(); } 
+        else if (msg.type === 'MATCH_OVER') handleMatchEnd(msg.winner, msg.reason);
+    };
+}
+
+function broadcast(msgObj) { if (dataChannel && dataChannel.readyState === 'open') dataChannel.send(JSON.stringify(msgObj)); }
+
+function updateVsMeter() {
+    if (gameMode !== '1v1') return;
+    let p1Score = amIPlayer1 ? score : opponentScore; let p2Score = amIPlayer1 ? opponentScore : score;
+    const total = Math.max(p1Score + p2Score, 1);
+    document.getElementById('vs-meter-fill').style.width = (50 + ((p1Score - p2Score) / total) * 50) + '%';
+}
+function updateOpponentUI() {
+    if (gameMode !== '1v1') return;
+    document.getElementById('score-opp').innerText = opponentScore;
+    let hearts = ""; for (let i = 0; i < opponentLives; i++) hearts += "♥"; document.getElementById('lives-container-opp').innerText = hearts;
+}
+function startMatchTimer() {
+    matchDuration = 60; const timerEl = document.getElementById('match-timer'); timerEl.innerText = matchDuration;
+    clearInterval(matchTimerInterval);
+    matchTimerInterval = setInterval(() => {
+        if (isPaused) return;
+        matchDuration--; timerEl.innerText = matchDuration;
+        if (matchDuration <= 0 && isHost) {
+            clearInterval(matchTimerInterval);
+            let winner = 'DRAW'; if (score > opponentScore) winner = amIPlayer1 ? 'P1' : 'P2'; else if (opponentScore > score) winner = amIPlayer1 ? 'P2' : 'P1';
+            broadcast({ type: 'MATCH_OVER', winner: winner, reason: 'TIME EXPIRED' }); handleMatchEnd(winner, 'TIME EXPIRED');
+        }
+    }, 1000);
+}
+function handleMatchEnd(winner, reason) {
+    isPlaying = false; clearInterval(matchTimerInterval);
+    const myId = amIPlayer1 ? 'P1' : 'P2'; const isVictorious = winner === myId;
+    uiState = 'GAMEOVER'; document.getElementById('final-score').innerText = score;
+    const titleEl = document.getElementById('game-over-title'); const conclusionEl = document.getElementById('conclusion-phrase');
+    if (winner === 'DRAW') { titleEl.innerText = "STALEMATE"; titleEl.style.textShadow = "0 0 20px #888"; conclusionEl.innerText = "EVENLY MATCHED"; }
+    else if (isVictorious) { titleEl.innerText = "VICTORY"; titleEl.style.textShadow = "0 0 20px #00f3ff"; conclusionEl.innerText = `OPPONENT DESTROYED (${reason})`; } 
+    else { titleEl.innerText = "DEFEAT"; titleEl.style.textShadow = "0 0 20px #ff0055"; conclusionEl.innerText = `CRUSHED (${reason})`; }
+    screens.GAMEOVER.classList.remove('hidden'); bgMusic.pause();
+}
+function handleSongEnd() {
+    if (!isPlaying) return; isPlaying = false; clearInterval(matchTimerInterval);
+    if (gameMode === '1v1') {
+        let winner = 'DRAW'; if (score > opponentScore) winner = amIPlayer1 ? 'P1' : 'P2'; else if (opponentScore > score) winner = amIPlayer1 ? 'P2' : 'P1';
+        if (isHost) broadcast({ type: 'MATCH_OVER', winner: winner, reason: 'TRACK CLEARED' });
+        handleMatchEnd(winner, 'TRACK CLEARED');
+    } else {
+        uiState = 'GAMEOVER'; document.getElementById('final-score').innerText = score;
+        const titleEl = document.getElementById('game-over-title'); const conclusionEl = document.getElementById('conclusion-phrase');
+        titleEl.innerText = "TRACK CLEARED"; titleEl.style.textShadow = "0 0 20px #00ff66"; conclusionEl.innerText = "YOU SURVIVED";
+        
+        // Update Song specific High Score
+        if (!userData.songScores) userData.songScores = {};
+        const currentSongTitle = playlist[currentSongIndex].title;
+        if (score > (userData.songScores[currentSongTitle] || 0)) {
+            userData.songScores[currentSongTitle] = score;
+        }
+
+        if (score > userData.highScore) {
+            userData.highScore = score; userData.highScoreSong = currentSongTitle;
+            const hsAlert = document.getElementById('high-score-alert'); if (hsAlert) hsAlert.classList.remove('hidden');
+        }
+        userData.coins += sessionCoins; saveLocalProfile();
+        document.getElementById('earned-coins').innerText = "+" + sessionCoins;
+        screens.GAMEOVER.classList.remove('hidden'); bgMusic.pause();
+    }
+}
+
+// ==========================================
+// 7. CORE GAMEPLAY ENGINE
+// ==========================================
+function startGameSequence() {
+    uiState = 'LOADING'; unlockAudio(); playCoinSound();
+    currentSong = playlist[currentSongIndex]; 
+    const trackEl = document.getElementById('current-track'); if (trackEl) trackEl.innerText = currentSong.title;
+    bgMusic.pause(); bgMusic.src = currentSong.src; bgMusic.loop = false; bgMusic.onended = handleSongEnd;
+    if (masterGain) masterGain.gain.value = 0; gameContainer.style.borderColor = '#fff';
+
+    activeLetters = []; activeWord = null; floatingTexts = []; particles = []; opponentFloatingTexts = []; opponentParticles = [];
+    score = 0; currentRound = 1; comboCount = 0; comboMultiplier = 1; lives = (gameMode === 'duo') ? 5 : 3; sessionCoins = 0;
+    arcadeShakeIntensity = 0; hitZoom = 0; slowMoTimer = 0; currentPlaybackRate = 1.0; targetPlaybackRate = 1.0; bgMusic.playbackRate = 1.0; currentFallSpeed = 200; targetFallSpeed = 200; beatInterval = 60 / currentSong.bpm;
+    
+    screens.START.classList.add('hidden'); const hsAlert = document.getElementById('high-score-alert'); if (hsAlert) hsAlert.classList.add('hidden');
+    document.getElementById('ui-layer').classList.remove('hidden'); document.getElementById('track-info').classList.remove('hidden');
+
+    if (gameMode === '1v1') {
+        arcadeRoom.classList.add('vs-running');
+        document.getElementById('right-leaderboards').classList.add('hidden');
+        document.getElementById('scale-wrapper-opp').classList.remove('hidden'); document.getElementById('vs-hologram').classList.remove('hidden');
+        opponentScore = 0; opponentLives = 3; updateVsMeter(); updateOpponentUI(); startMatchTimer();
+    } else {
+        arcadeRoom.classList.add('game-running'); document.getElementById('vs-hologram').classList.add('hidden');
+        document.getElementById('scale-wrapper-opp').classList.add('hidden'); document.getElementById('right-leaderboards').classList.remove('hidden');
+    }
+    
+    setTimeout(() => {
+        songTime = 0; bgMusic.currentTime = 0; if (masterGain) masterGain.gain.value = 1.0; nextSpawnTime = 0.2; isPlaying = true; isPaused = false; uiState = 'PLAYING';
+        bgMusic.play().catch(() => { if (currentSong.fallbackSrc) { bgMusic.src = currentSong.fallbackSrc; bgMusic.play().catch(()=>{}); } });
+        updateUI(); lastTime = performance.now(); requestAnimationFrame(update);
+    }, 1500); 
+}
+
+function spawnLetterLogic() {
+    if (activeWord) return;
+    if (Math.random() < 0.20) {
+        const words = ["CYBER", "RHYTHM", "OVERKILL", "SYSTEM", "BIT", "ARCADE", "VECTOR"]; const text = words[Math.floor(Math.random() * words.length)];
+        activeWord = { text: text, progress: 0, x: Math.random() * (canvas.width - 250) + 100, y: -30, color: '#00ffff' };
+        if (gameMode !== 'solo' && isHost) broadcast({ type: 'SPAWN_WORD', word: activeWord }); return;
+    }
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; const char = chars[Math.floor(Math.random() * chars.length)];
+    const x = Math.random() * (canvas.width - 120) + 60; let type = 'normal'; let color = comboColors[Math.min(comboMultiplier - 1, comboColors.length - 1)]; let targetPlayer = 0;
+    if (Math.random() < 0.15) { const roll = Math.random(); if (roll < 0.25) { type = '1up'; color = '#0f0'; } else if (roll < 0.50) { type = 'slow'; color = '#0ff'; } else if (roll < 0.75) { type = 'nuke'; color = '#ff4400'; } else { type = 'skull'; color = '#ff0033'; } } 
+    else if (gameMode === 'duo') { targetPlayer = Math.random() < 0.5 ? 1 : 2; color = targetPlayer === 1 ? '#00f3ff' : '#ffe600'; }
+    const newLetter = { id: Date.now() + Math.random(), char, x, y: -30, color, type, targetPlayer };
+    activeLetters.push(newLetter); if (gameMode !== 'solo' && isHost) broadcast({ type: 'SPAWN_LETTER', letter: newLetter });
+}
+
+function update(time) {
+    if (!isPlaying || isPaused) return;
+    const dt = Math.min((time - lastTime) / 1000, 0.1); lastTime = time;
+    if (bgMusic.readyState >= 3 && !bgMusic.paused) songTime = bgMusic.currentTime; else songTime += dt * (slowMoTimer > 0 ? 0.6 : targetPlaybackRate);
+    if (score >= 2000 && currentRound === 1) { currentRound = 2; targetPlaybackRate = 1.05; targetFallSpeed = 230; updateUI(); } 
+    else if (score >= 4000 && currentRound === 2) { currentRound = 3; targetPlaybackRate = 1.10; targetFallSpeed = 260; updateUI(); }
+    if (slowMoTimer > 0) { slowMoTimer -= dt; arcadeCabinet.classList.add('slow-mo-active'); currentPlaybackRate += (0.5 - currentPlaybackRate) * dt * 3.0; currentFallSpeed += ((targetFallSpeed * 0.4) - currentFallSpeed) * dt * 3.0; } 
+    else { arcadeCabinet.classList.remove('slow-mo-active'); if (currentPlaybackRate < targetPlaybackRate) { currentPlaybackRate = targetPlaybackRate; currentFallSpeed = targetFallSpeed; } }
+    bgMusic.playbackRate = Math.max(0.1, currentPlaybackRate);
+    
+    hitZoom += (0 - hitZoom) * dt * 15.0; // Decay hit zoom effect
+    
+    let currentShake = arcadeShakeIntensity; if (isPlaying && slowMoTimer <= 0) currentShake += (window.musicReaction || 0) * 8; 
+    
+    // Dynamic Transformation Layer applying base shake and the new micro-zoom scaling
+    if (currentShake > 0.5 || hitZoom > 0.001) { 
+        let scaleFx = 1.0 + hitZoom;
+        if (gameMode === '1v1') {
+            arcadeCabinet.style.transform = `translateX(calc(-400px + ${(Math.random() - 0.5) * currentShake}px)) translateZ(400px) rotateY(10deg) translateY(calc(200px + ${(Math.random() - 0.5) * currentShake}px)) scale(${scaleFx})`; 
+        } else {
+            arcadeCabinet.style.transform = `translateZ(850px) translateY(calc(200px + ${(Math.random() - 0.5) * currentShake}px)) translateX(${(Math.random() - 0.5) * currentShake}px) scale(${scaleFx})`; 
+        }
+        arcadeShakeIntensity *= 0.85; if (arcadeShakeIntensity < 0.1) arcadeShakeIntensity = 0; 
+    } 
+    else {
+        arcadeCabinet.style.transform = ''; 
+    }
+    
+    if ((gameMode === 'solo' || isHost) && songTime >= nextSpawnTime) { spawnLetterLogic(); let activeInterval = beatInterval * 2; if (currentRound === 2) activeInterval = beatInterval * 1.5; if (currentRound === 3) activeInterval = beatInterval * 1.2; nextSpawnTime = songTime + activeInterval; }
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height); if (gameMode === '1v1' && oppCtx) oppCtx.clearRect(0, 0, oppCanvas.width, oppCanvas.height);
+    let beat = window.musicReaction || 0; let hue = window.musicHue || 0;
+    
+    // Local Canvas Rendering
+    ctx.fillStyle = `hsla(${hue}, 100%, 8%, ${0.2 + beat * 0.5})`; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = `hsla(${hue}, 100%, 50%, ${0.1 + beat * 0.3})`; ctx.lineWidth = 2; ctx.beginPath();
+    const gridSize = 40 + (beat * 15); const offsetX = (canvas.width % gridSize) / 2;
+    for (let x = offsetX; x < canvas.width; x += gridSize) { ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); }
+    for (let y = 0; y < canvas.height; y += gridSize) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
+    ctx.stroke();
+    if (dataArray && analyser) { const bars = 40; const bWidth = canvas.width / bars; for (let i = 0; i < bars; i++) { const dataIndex = Math.floor((i / bars) * (dataArray.length / 2)); const heightPct = dataArray[dataIndex] / 255; const bHeight = heightPct * 180; ctx.fillStyle = `hsla(${(hue + i * 4) % 360}, 100%, 60%, ${0.2 + beat * 0.4})`; ctx.fillRect(i * bWidth, canvas.height - bHeight, bWidth - 2, bHeight); } }
+    
+    for (let i = particles.length - 1; i >= 0; i--) { let p = particles[i]; p.vy += 1000 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt * 1.5; if (p.life <= 0) particles.splice(i, 1); else { ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, p.size, p.size); } } ctx.globalAlpha = 1.0;
+    for (let i = floatingTexts.length - 1; i >= 0; i--) { let ft = floatingTexts[i]; ft.y -= dt * 60; ft.life -= dt * 1.5; if (ft.life <= 0) floatingTexts.splice(i, 1); else { ctx.globalAlpha = Math.min(1.0, ft.life); ctx.fillStyle = ft.color; ctx.font = ft.size + 'px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.fillText(ft.text, ft.x, ft.y); } } ctx.globalAlpha = 1.0;
+    
+    if (activeWord) {
+        activeWord.y += (currentFallSpeed * 0.75) * dt; ctx.font = '22px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const typedPart = activeWord.text.substring(0, activeWord.progress); const remainingPart = activeWord.text.substring(activeWord.progress);
+        ctx.fillStyle = '#00ff66'; ctx.shadowBlur = 15; ctx.shadowColor = '#00ff66'; ctx.fillText(typedPart, activeWord.x - 30, activeWord.y);
+        ctx.fillStyle = '#00ffff'; ctx.shadowColor = '#00ffff'; ctx.fillText(remainingPart, activeWord.x + 30, activeWord.y); ctx.shadowBlur = 0;
+        if (activeWord.y > canvas.height + 20) { activeWord = null; floatingTexts.push({ text: "WORD MISSED", x: canvas.width/2, y: canvas.height - 30, life: 0.8, size: 16, color: '#ff0033' }); loseLife(); if (lives <= 0) return; }
+    }
+    
+    ctx.font = '24px "Press Start 2P", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (let i = activeLetters.length - 1; i >= 0; i--) {
+        let l = activeLetters[i]; l.y += currentFallSpeed * dt; ctx.globalAlpha = 1.0; ctx.fillStyle = l.color; ctx.shadowBlur = l.type !== 'normal' ? 15 : 0; ctx.shadowColor = l.color;
+        let text = l.char; if (l.type === 'nuke') text = `[ ${l.char} ]`; else if (l.type === '1up') text = `+ ${l.char} +`; else if (l.type === 'slow') text = `~ ${l.char} ~`; else if (l.type === 'skull') text = `☠ ${l.char} ☠`;
+        ctx.fillText(text, l.x, l.y); ctx.shadowBlur = 0; 
+        if (l.y > canvas.height + 20) { activeLetters.splice(i, 1); if (l.type === 'skull') floatingTexts.push({ text: "EVADED", x: l.x, y: canvas.height - 30, life: 0.8, size: 16, color: '#00ff66' }); else { floatingTexts.push({ text: "MISS", x: l.x, y: canvas.height - 30, life: 0.8, size: 16, color: '#ff0033' }); loseLife(); if (lives <= 0) return; } }
+    }
+    
+    // Opponent Canvas Rendering
+    if (gameMode === '1v1' && oppCtx) {
+        oppCtx.fillStyle = `hsla(${hue}, 100%, 8%, ${0.2 + beat * 0.5})`; oppCtx.fillRect(0, 0, oppCanvas.width, oppCanvas.height);
+        oppCtx.strokeStyle = `hsla(${hue}, 100%, 50%, ${0.1 + beat * 0.3})`; oppCtx.lineWidth = 2; oppCtx.beginPath();
+        for (let x = offsetX; x < oppCanvas.width; x += gridSize) { oppCtx.moveTo(x, 0); oppCtx.lineTo(x, oppCanvas.height); }
+        for (let y = 0; y < oppCanvas.height; y += gridSize) { oppCtx.moveTo(0, y); oppCtx.lineTo(oppCanvas.width, y); } oppCtx.stroke();
+        for (let i = opponentParticles.length - 1; i >= 0; i--) { let p = opponentParticles[i]; p.vy += 1000 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt * 1.5; if (p.life <= 0) opponentParticles.splice(i, 1); else { oppCtx.fillStyle = p.color; oppCtx.globalAlpha = p.life; oppCtx.fillRect(p.x, p.y, p.size, p.size); } } oppCtx.globalAlpha = 1.0;
+        for (let i = opponentFloatingTexts.length - 1; i >= 0; i--) { let ft = opponentFloatingTexts[i]; ft.y -= dt * 60; ft.life -= dt * 1.5; if (ft.life <= 0) opponentFloatingTexts.splice(i, 1); else { oppCtx.globalAlpha = Math.min(1.0, ft.life); oppCtx.fillStyle = ft.color; oppCtx.font = ft.size + 'px "Press Start 2P", monospace'; oppCtx.textAlign = 'center'; oppCtx.fillText(ft.text, ft.x, ft.y); } } oppCtx.globalAlpha = 1.0;
+        oppCtx.font = '24px "Press Start 2P", monospace'; oppCtx.textAlign = 'center'; oppCtx.textBaseline = 'middle';
+        for (let i = 0; i < activeLetters.length; i++) {
+            let l = activeLetters[i]; oppCtx.fillStyle = l.color; oppCtx.shadowBlur = l.type !== 'normal' ? 15 : 0; oppCtx.shadowColor = l.color;
+            let text = l.char; if (l.type === 'nuke') text = `[ ${l.char} ]`; else if (l.type === '1up') text = `+ ${l.char} +`; else if (l.type === 'slow') text = `~ ${l.char} ~`; else if (l.type === 'skull') text = `☠ ${l.char} ☠`;
+            oppCtx.fillText(text, l.x, l.y); oppCtx.shadowBlur = 0; 
+        }
+    }
+    requestAnimationFrame(update);
+}
+
+function updateUI() {
+    document.getElementById('score').innerText = score; document.getElementById('combo').innerText = comboCount; document.getElementById('multiplier').innerText = 'x' + comboMultiplier;
+    document.getElementById('round-ui').innerText = 'ROUND ' + currentRound; const scEl = document.getElementById('session-coins'); if (scEl) scEl.innerText = sessionCoins;
+    let hearts = ""; for (let i = 0; i < lives; i++) hearts += "♥"; document.getElementById('lives-container').innerText = hearts;
+    if (lives === 1) gameContainer.classList.add('danger-state'); else gameContainer.classList.remove('danger-state');
+    document.getElementById('combo-container').style.color = comboColors[Math.min(comboMultiplier - 1, comboColors.length - 1)];
+}
+
+function triggerPowerUp(letter) {
+    if (letter.type !== 'skull') {
+        sessionCoins = Math.ceil(sessionCoins * 1.5) + 5; floatingTexts.push({ text: "COINS x1.5!", x: canvas.width/2, y: canvas.height/2 + 70, life: 2.0, size: 20, color: '#ffaa00' });
+        if (letter.type === '1up') { lives = Math.min(lives + 1, MAX_LIVES); play1UPSound(); arcadeCabinet.classList.add('flash-1up'); setTimeout(() => arcadeCabinet.classList.remove('flash-1up'), 400); floatingTexts.push({ text: "1-UP!", x: letter.x, y: letter.y, life: 1.5, size: 20, color: '#0f0' }); } 
+        else if (letter.type === 'nuke') { arcadeShakeIntensity = 80; playNukeSound(); arcadeCabinet.classList.add('flash-nuke'); setTimeout(() => arcadeCabinet.classList.remove('flash-nuke'), 500); let pointsGained = 0; for (let i = activeLetters.length - 1; i >= 0; i--) { pointsGained += (10 * comboMultiplier); createExplosion(activeLetters[i].x, activeLetters[i].y, activeLetters[i].color, 1.3); } score += pointsGained; floatingTexts.push({ text: "NUKE DETONATED!", x: canvas.width/2, y: canvas.height/2, life: 2.0, size: 30, color: '#ff4400' }); if (pointsGained > 0) floatingTexts.push({ text: `+${pointsGained}`, x: canvas.width/2, y: canvas.height/2 + 40, life: 2.0, size: 20, color: '#fff' }); activeLetters = []; activeWord = null; targetFallSpeed = 200 + ((currentRound - 1) * 30); nextSpawnTime = songTime + 2.0; } 
+        else if (letter.type === 'slow') { slowMoTimer = 6.0; playSlowMoSound(); floatingTexts.push({ text: "TIME WARP", x: letter.x, y: letter.y, life: 1.5, size: 20, color: '#0ff' }); }
+    } else {
+        arcadeShakeIntensity = 40; playDamageSound(); arcadeCabinet.classList.add('flash-skull'); setTimeout(() => arcadeCabinet.classList.remove('flash-skull'), 400);
+        sessionCoins = Math.floor(sessionCoins / 2); comboCount = 0; comboMultiplier = 1; floatingTexts.push({ text: "POISON! -1 LIFE", x: letter.x, y: letter.y, life: 1.5, size: 20, color: '#ff0033' }); loseLife();
+    }
+}
+function createExplosion(x, y, color, scale = 1.0) { const pCount = 35 * scale; for (let i = 0; i < pCount; i++) particles.push({ x: x + (Math.random() - 0.5) * 20, y: y + (Math.random() - 0.5) * 20, vx: (Math.random() - 0.5) * (800 * scale), vy: (Math.random() - 0.5) * (800 * scale), life: 1.0 + Math.random() * 0.3, size: Math.random() * (8 * scale) + 2, color: color }); }
+function createOpponentExplosion(x, y, color, scale = 1.0) { const pCount = 35 * scale; for (let i = 0; i < pCount; i++) opponentParticles.push({ x: x + (Math.random() - 0.5) * 20, y: y + (Math.random() - 0.5) * 20, vx: (Math.random() - 0.5) * (800 * scale), vy: (Math.random() - 0.5) * (800 * scale), life: 1.0 + Math.random() * 0.3, size: Math.random() * (8 * scale) + 2, color: color }); }
+
+function loseLife() {
+    lives--; comboCount = 0; comboMultiplier = 1; arcadeShakeIntensity = 60; playDamageSound();
+    gameContainer.classList.add('damage-flicker'); setTimeout(() => gameContainer.classList.remove('damage-flicker'), 400); updateUI();
+    if (lives <= 0) {
+        if (gameMode === '1v1') { const winner = amIPlayer1 ? 'P2' : 'P1'; broadcast({ type: 'MATCH_OVER', winner: winner, reason: 'OPPONENT DIED' }); handleMatchEnd(winner, 'NO LIVES REMAINING'); return; }
+        isPlaying = false; uiState = 'GAMEOVER'; document.getElementById('final-score').innerText = score;
+        let phrases = [];
+        if (score < 1000) phrases = ["YOU CALL THAT TYPING?", "FINGERS TIED IN KNOTS?", "BETTER LUCK NEXT TIME"];
+        else if (score < 4000) phrases = ["VALIANT EFFORT!", "NOT BAD FOR A ROOKIE", "KEEP PRACTICING"];
+        else if (score < 10000) phrases = ["KEYBOARD WARRIOR!", "ABSOLUTE DEVASTATION!", "UNSTOPPABLE FORCE!"];
+        else phrases = ["FLAWLESS VICTORY!", "ASCENDED TO GODHOOD!", "CYBERNETIC REFLEXES!"];
+        const conclusionEl = document.getElementById('conclusion-phrase'); if (conclusionEl) conclusionEl.innerText = phrases[Math.floor(Math.random() * phrases.length)];
+        
+        // Update Song specific High Score
+        if (!userData.songScores) userData.songScores = {};
+        const currentSongTitle = playlist[currentSongIndex].title;
+        if (score > (userData.songScores[currentSongTitle] || 0)) {
+            userData.songScores[currentSongTitle] = score;
+        }
+
+        if (score > userData.highScore) { 
+            userData.highScore = score; userData.highScoreSong = currentSongTitle; 
+            const hsAlert = document.getElementById('high-score-alert'); if (hsAlert) hsAlert.classList.remove('hidden'); 
+        }
+        userData.coins += sessionCoins; saveLocalProfile(); document.getElementById('earned-coins').innerText = "+" + sessionCoins;
+        screens.GAMEOVER.classList.remove('hidden'); bgMusic.pause();
+    } else { slowMoTimer = 2.0; playSlowMoSound(); }
+}
+
+function togglePause() {
+    if (!isPlaying) return; isPaused = !isPaused;
+    if (isPaused) { uiState = 'PAUSED'; bgMusic.pause(); pauseSelect = 0; updatePauseUI(); screens.PAUSE.classList.remove('hidden'); } 
+    else { uiState = 'PLAYING'; screens.PAUSE.classList.add('hidden'); requestAnimationFrame((t) => { lastTime = t; bgMusic.play(); requestAnimationFrame(update); }); }
+}
+
+function quitGame(returnToStart = false) {
+    clearInterval(matchTimerInterval); isPaused = false; isPlaying = false; bgMusic.pause(); bgMusic.currentTime = 0;
+    arcadeRoom.classList.remove('game-running', 'vs-running');
+    document.getElementById('vs-hologram').classList.add('hidden');
+    document.getElementById('right-leaderboards').classList.remove('hidden');
+    document.getElementById('scale-wrapper-opp').classList.add('hidden');
+    document.getElementById('ui-layer').classList.add('hidden'); document.getElementById('track-info').classList.add('hidden');
+    gameContainer.classList.remove('danger-state'); arcadeCabinet.style.transform = ''; arcadeCabinet.classList.remove('slow-mo-active');
+    ctx.clearRect(0, 0, canvas.width, canvas.height); if (oppCtx) oppCtx.clearRect(0, 0, oppCanvas.width, oppCanvas.height);
+    transitionTo(returnToStart ? 'START' : 'LOBBY_MAIN');
+}
+
+// Ensure screens are initialized visually
+updateSideScreens();
+
+</script>
+    </body>
+</html>
